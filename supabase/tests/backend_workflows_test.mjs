@@ -36,7 +36,14 @@ test('Safe Backend Workflows, Maker-Checker & Idempotency Suite', async t => {
   );
   await db.exec(m3);
 
-  // 4. Run Seed Data
+  // 4. Run Migration 04 (Case Assignment & Reconciliation)
+  const m4 = fs.readFileSync(
+    path.join(ROOT_DIR, 'supabase/migrations/20261113000004_case_assignment_and_reconciliation.sql'),
+    'utf8'
+  );
+  await db.exec(m4);
+
+  // 5. Run Seed Data
   const seed = fs.readFileSync(
     path.join(ROOT_DIR, 'supabase/seed.sql'),
     'utf8'
@@ -301,6 +308,140 @@ test('Safe Backend Workflows, Maker-Checker & Idempotency Suite', async t => {
     `);
     assert.strictEqual(replayRes.rows[0].workflow_ingest_sync_mutation.idempotent, true);
     assert.strictEqual(replayRes.rows[0].workflow_ingest_sync_mutation.status, 'already_applied');
+  });
+
+  await t.test('7. Case Assignment Workflow: Role & Governorate Scope Enforced', async () => {
+    // Caseworker attempting to assign case must be rejected
+    await asUser(caseworkerId);
+    let workerAssignBlocked = false;
+    try {
+      await db.query(`
+        SELECT public.workflow_assign_case(
+          '${testCaseId}', '${caseworkerId}', 'Self assigning', 'idem-assign-01'
+        );
+      `);
+    } catch (err) {
+      if (err.message.includes('ERR_FORBIDDEN')) {
+        workerAssignBlocked = true;
+      }
+    }
+    assert.strictEqual(workerAssignBlocked, true, 'Caseworker cannot assign cases');
+
+    // Baghdad Supervisor attempting to assign Ninewa case must be rejected (cross-scope)
+    await asUser(supervisorId);
+    let crossGovAssignBlocked = false;
+    try {
+      await db.query(`
+        SELECT public.workflow_assign_case(
+          '${testCaseId}', '${caseworkerId}', 'Cross-gov assigning', 'idem-assign-02'
+        );
+      `);
+    } catch (err) {
+      if (err.message.includes('ERR_SCOPE_DENIED')) {
+        crossGovAssignBlocked = true;
+      }
+    }
+    assert.strictEqual(crossGovAssignBlocked, true, 'Supervisor out of governorate scope cannot assign case');
+
+    // Grant Ninewa Supervisor scope and assign
+    const ninewaSupId = '00000000-0000-0000-0000-000000000099';
+    await asAdmin();
+    await db.exec(`
+      INSERT INTO staff_profiles (id, email, full_name_ar, full_name_en, is_active)
+      VALUES ('${ninewaSupId}', 'sup.ninewa@humanity.local', 'مشرف نينوى', 'Supervisor Ninewa', true)
+      ON CONFLICT DO NOTHING;
+
+      INSERT INTO staff_roles (staff_id, role, is_active)
+      VALUES ('${ninewaSupId}', 'supervisor', true)
+      ON CONFLICT DO NOTHING;
+
+      INSERT INTO staff_scopes (staff_id, governorate_id)
+      VALUES ('${ninewaSupId}', 'IQ-NI')
+      ON CONFLICT DO NOTHING;
+    `);
+
+    await asUser(ninewaSupId);
+    const assignRes = await db.query(`
+      SELECT public.workflow_assign_case(
+        '${testCaseId}', '${caseworkerId}', 'Formal assignment to field worker', 'idem-assign-03'
+      );
+    `);
+    assert.strictEqual(assignRes.rows[0].workflow_assign_case.status, 'success');
+  });
+
+  await t.test('8. Audited Document Access Request', async () => {
+    const testDocId = '90000000-0000-0000-0000-000000000001';
+    await asAdmin();
+    await db.exec(`
+      INSERT INTO document_metadata (
+        id, beneficiary_id, case_id, document_category, storage_bucket,
+        storage_path, file_name_original, mime_type, file_size_bytes, uploaded_by
+      ) VALUES (
+        '${testDocId}', '20000000-0000-0000-0000-000000000001', '${testCaseId}',
+        'national_id_scan', 'documents-private', 'ninewa/doc1.pdf',
+        'national_card.pdf', 'application/pdf', 500000, '${caseworkerId}'
+      ) ON CONFLICT DO NOTHING;
+    `);
+
+    // Unauthorized staff (Baghdad supervisor) attempting to access Ninewa document
+    await asUser(supervisorId);
+    let docForbidden = false;
+    try {
+      await db.query(`SELECT public.workflow_request_document_access('${testDocId}');`);
+    } catch (err) {
+      if (err.message.includes('ERR_DOCUMENT_FORBIDDEN')) {
+        docForbidden = true;
+      }
+    }
+    assert.strictEqual(docForbidden, true, 'Cross-governorate document access must be forbidden');
+
+    // Authorized caseworker requests document
+    await asUser(caseworkerId);
+    const docAccessRes = await db.query(`SELECT public.workflow_request_document_access('${testDocId}');`);
+    assert.strictEqual(docAccessRes.rows[0].workflow_request_document_access.access_granted, true);
+
+    // Verify DOCUMENT_ACCESS_REQUESTED audit log
+    await asAdmin();
+    const docAudit = await db.query(`
+      SELECT * FROM audit_logs WHERE action_name = 'DOCUMENT_ACCESS_REQUESTED' AND entity_id = '${testDocId}';
+    `);
+    assert.strictEqual(docAudit.rows.length >= 1, true, 'Document access must generate audit log record');
+  });
+
+  await t.test('9. Financial Reconciliation Workflow', async () => {
+    const entId = '70000000-0000-0000-0000-000000000002';
+
+    // Unauthorized caseworker cannot reconcile batch
+    await asUser(caseworkerId);
+    let reconcileBlocked = false;
+    try {
+      await db.query(`
+        SELECT public.workflow_reconcile_finance_batch(
+          '${entId}', 'BANK-REF-998877', 'Caseworker reconciliation attempt', 'idem-rec-01'
+        );
+      `);
+    } catch (err) {
+      if (err.message.includes('ERR_FORBIDDEN')) {
+        reconcileBlocked = true;
+      }
+    }
+    assert.strictEqual(reconcileBlocked, true, 'Caseworker forbidden from financial reconciliation');
+
+    // Authorized Finance Checker reconciles batch
+    await asUser(financeCheckerId);
+    const recRes = await db.query(`
+      SELECT public.workflow_reconcile_finance_batch(
+        '${entId}', 'BANK-REF-998877', 'Monthly bank clearing confirmed', 'idem-rec-02'
+      );
+    `);
+    assert.strictEqual(recRes.rows[0].workflow_reconcile_finance_batch.status, 'success');
+
+    // Verify audit log
+    await asAdmin();
+    const recAudit = await db.query(`
+      SELECT * FROM audit_logs WHERE action_name = 'FINANCE_BATCH_RECONCILED' AND entity_id = '${entId}';
+    `);
+    assert.strictEqual(recAudit.rows.length >= 1, true, 'Reconciliation must be logged in audit trail');
   });
 });
 

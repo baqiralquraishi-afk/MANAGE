@@ -148,3 +148,8 @@ export interface UserContext {
   governorates: string[];
   programmes: ProgrammeCode[];
 }
+
+/**
+ * Generated Database Types
+ */
+export * from './database.types.js';

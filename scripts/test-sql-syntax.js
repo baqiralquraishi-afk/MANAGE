@@ -22,6 +22,7 @@ const filesToCheck = [
   path.join(MIGRATIONS_DIR, '20261113000001_core_schema.sql'),
   path.join(MIGRATIONS_DIR, '20261113000002_rls_and_storage_policies.sql'),
   path.join(MIGRATIONS_DIR, '20261113000003_safe_backend_workflows.sql'),
+  path.join(MIGRATIONS_DIR, '20261113000004_case_assignment_and_reconciliation.sql'),
   SEED_FILE,
   TEST_FILE,
 ];
@@ -128,6 +129,21 @@ for (const filePath of filesToCheck) {
     }
     if (!content.includes('workflow_ingest_sync_mutation')) {
       console.error('[ERROR] Missing workflow_ingest_sync_mutation function');
+      hasErrors = true;
+    }
+  }
+
+  if (filePath.includes('20261113000004_case_assignment_and_reconciliation.sql')) {
+    if (!content.includes('workflow_assign_case')) {
+      console.error('[ERROR] Missing workflow_assign_case function');
+      hasErrors = true;
+    }
+    if (!content.includes('workflow_request_document_access')) {
+      console.error('[ERROR] Missing workflow_request_document_access function');
+      hasErrors = true;
+    }
+    if (!content.includes('workflow_reconcile_finance_batch')) {
+      console.error('[ERROR] Missing workflow_reconcile_finance_batch function');
       hasErrors = true;
     }
   }
