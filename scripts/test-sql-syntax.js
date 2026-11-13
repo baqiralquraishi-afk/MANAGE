@@ -21,6 +21,7 @@ let hasErrors = false;
 const filesToCheck = [
   path.join(MIGRATIONS_DIR, '20261113000001_core_schema.sql'),
   path.join(MIGRATIONS_DIR, '20261113000002_rls_and_storage_policies.sql'),
+  path.join(MIGRATIONS_DIR, '20261113000003_safe_backend_workflows.sql'),
   SEED_FILE,
   TEST_FILE,
 ];
@@ -104,6 +105,29 @@ for (const filePath of filesToCheck) {
     }
     if (!content.includes('documents-private')) {
       console.error('[ERROR] Missing documents-private storage configuration');
+      hasErrors = true;
+    }
+  }
+
+  if (filePath.includes('20261113000003_safe_backend_workflows.sql')) {
+    if (!content.includes('workflow_transition_case')) {
+      console.error('[ERROR] Missing workflow_transition_case function');
+      hasErrors = true;
+    }
+    if (!content.includes('workflow_maker_checker_approve')) {
+      console.error('[ERROR] Missing workflow_maker_checker_approve function');
+      hasErrors = true;
+    }
+    if (!content.includes('workflow_disburse_finance')) {
+      console.error('[ERROR] Missing workflow_disburse_finance function');
+      hasErrors = true;
+    }
+    if (!content.includes('workflow_reverse_finance')) {
+      console.error('[ERROR] Missing workflow_reverse_finance function');
+      hasErrors = true;
+    }
+    if (!content.includes('workflow_ingest_sync_mutation')) {
+      console.error('[ERROR] Missing workflow_ingest_sync_mutation function');
       hasErrors = true;
     }
   }
