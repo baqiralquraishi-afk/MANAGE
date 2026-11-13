@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-typecheck:
-    name: Code Quality & Type Integrity
+  quality-and-security:
+    name: Code Quality, Licenses & Secret Scanning
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -31,17 +31,104 @@ jobs:
       - name: Verify Workspace & Scan for Secrets
         run: node scripts/verify-setup.js
 
-      - name: Check Formatting
+      - name: Verify Dependency & Open-Source Licenses
+        run: node scripts/verify-licenses.js
+
+      - name: Check Formatting (Prettier)
         run: pnpm format
+
+      - name: Run Linters
+        run: pnpm lint
 
       - name: Typecheck Contracts & Web
         run: pnpm typecheck
 
-      - name: Run Tests
-        run: pnpm test
+  database-policies-and-adversarial:
+    name: Database Migrations, RLS & Adversarial Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-  mobile-analysis:
-    name: Flutter Mobile Static Analysis
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Verify SQL Migrations & Constraints Syntax
+        run: node scripts/test-sql-syntax.js
+
+      - name: Run RLS Authorization Policy Suite
+        run: pnpm test:rls
+
+      - name: Run Safe Backend Workflows Suite
+        run: pnpm test:workflows
+
+      - name: Run Beneficiary & Case Management Suite
+        run: pnpm test:beneficiaries
+
+      - name: Run Assistance & Financial Workflows Suite
+        run: pnpm test:assistance
+
+      - name: Run Supporting Modules Suite
+        run: pnpm test:supporting
+
+      - name: Run Encrypted Offline Sync Suite
+        run: pnpm test:sync
+
+      - name: Run Audit Hardening & Immutability Suite
+        run: pnpm test:audit
+
+      - name: Run Adversarial Security Resilience Suite
+        run: pnpm test:adversarial
+
+      - name: Run Synthetic High-Volume Performance Benchmark (10k+ records)
+        run: pnpm benchmark
+
+  web-build-and-test:
+    name: Next.js Web Tests & Production Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build Contracts Package
+        run: pnpm build:contracts
+
+      - name: Run Contracts Test Suite
+        run: pnpm --filter @humanity/contracts test
+
+      - name: Run Web Application Test Suite
+        run: pnpm --filter web test
+
+      - name: Build Next.js Production Web App
+        run: pnpm build:web
+
+  mobile-test-and-build:
+    name: Flutter Mobile Analysis, Tests & Platform Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -54,10 +141,18 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Get Dependencies
+      - name: Get Mobile Dependencies
         working-directory: apps/mobile
         run: flutter pub get
 
       - name: Analyze Flutter Code
         working-directory: apps/mobile
         run: flutter analyze
+
+      - name: Run Mobile Test Suite
+        working-directory: apps/mobile
+        run: flutter test
+
+      - name: Verify Supported Platform Build (Web Release)
+        working-directory: apps/mobile
+        run: flutter build web --release
