@@ -215,3 +215,17 @@ describe('Web Foundation - Security Boundary & Secret Hygiene', () => {
   });
 });
 
+describe('Web Foundation - Operational Health Check Endpoint', () => {
+  test('/api/health route exists and implements non-cached healthy probe', async () => {
+    const healthRoutePath = path.join(webSrcDir, 'app', 'api', 'health', 'route.ts');
+    assert.ok(fs.existsSync(healthRoutePath), 'api/health/route.ts must exist for container probes');
+
+    const content = fs.readFileSync(healthRoutePath, 'utf8');
+    assert.ok(content.includes('status: \'healthy\''), 'Must return status: healthy');
+    assert.ok(content.includes('Cache-Control'), 'Must specify Cache-Control header');
+    assert.ok(content.includes('uptime'), 'Must provide runtime uptime telemetry');
+    assert.ok(!content.includes('password') && !content.includes('secret') && !content.includes('SUPABASE_SERVICE_ROLE_KEY'), 'Must not leak secrets');
+  });
+});
+
+
