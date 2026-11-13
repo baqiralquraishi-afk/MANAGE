@@ -1,9 +1,9 @@
 # Operations, Infrastructure, Backups & Incident Response Documentation
 
-This directory contains the operational specifications, architecture designs, data residency assessments, software matrices, disaster recovery procedures, incident response runbooks, and restore verification records for the **Humanitarian Operations Management Platform**.
+This directory contains the operational specifications, architecture designs, data residency assessments, software matrices, disaster recovery procedures, incident response runbooks, rollout plans, migration specifications, and training handover curricula for the **Humanitarian Operations Management Platform**.
 
 > [!IMPORTANT]
-> **Deployment Preparation & Isolated Verification Only**: These documents and configurations represent staging/production architecture designs for organization-controlled sovereign infrastructure in Iraq or approved private hosting. No live cloud accounts, DNS changes, or public firewall ports have been created or modified. All recovery drills are conducted exclusively within isolated, air-gapped harnesses using synthetic data.
+> **Deployment Preparation & Isolated Verification Only**: These documents and configurations represent staging/production architecture designs for organization-controlled sovereign infrastructure in Iraq or approved private hosting. No live cloud accounts, DNS changes, or public firewall ports have been created or modified. All recovery drills and migration rehearsals are conducted exclusively within isolated, air-gapped harnesses using synthetic data.
 
 ---
 
@@ -18,7 +18,41 @@ This directory contains the operational specifications, architecture designs, da
 
 ---
 
-## 2. Operational & Disaster Recovery Runbooks
+## 2. Release Gates, Pilot & Staged Rollout
+
+| Document                                                                                                         | Purpose                                          | Key Content Covered                                                                                                                                                                                                                                                                                            |
+| :--------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [release_signoff_checklist.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/release_signoff_checklist.md) | Master Release Sign-Off & Go/No-Go Decision Gate | 15-gate verification matrix covering programme rules, safeguarding, privacy, financial segregation, RLS, accessibility, security, performance, monitoring, DR, and migration. Explicit executive decision board with **RELEASE BLOCKED** status pending formal in-person diplomatic review and staff training. |
+| [staged_rollout_plan.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/staged_rollout_plan.md)             | Staged Rollout, Pilot & Support Operations Plan  | 6-stage lifecycle (Fictional Demo $\to$ Security Sandbox $\to$ Staff Training $\to$ Limited Field Pilot $\to$ Feedback Loop $\to$ Phased Regional Expansion). Quantitative rollback triggers and 4-tier support escalation architecture with named leads.                                                      |
+
+---
+
+## 3. Data Migration & Reconciliation
+
+| Document                                                                                                   | Purpose                                | Key Content Covered                                                                                                                                                                                                                                    |
+| :--------------------------------------------------------------------------------------------------------- | :------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [data_migration_runbook.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/data_migration_runbook.md) | Data Migration Specification & Runbook | Legacy KoboToolbox / Excel / RAIS to PostgreSQL mapping matrix, mandatory human duplicate review (never auto-merge), financial ledger reconciliation ($0.00$ IQD variance target), cutover window timeline, validation totals, and rollback ownership. |
+
+_Automated Dry-Run Rehearsal_: Executable via `pnpm.cmd migration:dryrun` (`scripts/migration-dry-run.js`).
+
+---
+
+## 4. Role-Specific Training & Handover Guides
+
+All operational training and handover modules are located in [docs/operations/handover/](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/):
+
+| Handover Guide                                                                                               | Target Roles                       | Core Operational Competencies                                                                                                                                           |
+| :----------------------------------------------------------------------------------------------------------- | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [handover/README.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/README.md)                 | All Staff & Instructors            | Standardized handover framework, certification SLA, training sandbox reset rules.                                                                                       |
+| [handover/operators.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/operators.md)           | Systems Operators, SREs, DBAs      | Container stack lifecycle, Traefik reverse proxy, PostgreSQL continuous WAL archiving, MinIO S3 management, monitoring probes, backup restoration drills.               |
+| [handover/administrators.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/administrators.md) | Security Admins, Role Managers     | Role-based access control (`staff_roles`), geographic/programme scoping, credential revocation, audit forensics, remote device wipe.                                    |
+| [handover/caseworkers.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/caseworkers.md)       | Field Caseworkers, Intake Officers | Arabic RTL interface navigation, informed consent capture, duplicate candidate review, assessment scoring, offline mobile draft management, sync conflict resolution.   |
+| [handover/finance_staff.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/finance_staff.md)   | Finance Makers, Finance Checkers   | Maker-checker dual authorization, payment proposal generation, release authorization, approval limits, ledger immutability, compensating reversal accounting (ADR-004). |
+| [handover/auditors.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/handover/auditors.md)             | Compliance Auditors, DPOs          | Immutable audit trail querying (`audit_logs`), export event tracking, k-anonymity verification ($< 5$ cell suppression), data minimization oversight.                   |
+
+---
+
+## 5. Operational & Disaster Recovery Runbooks
 
 Standard Operating Procedures (SOPs) for systems engineering, operations, and business continuity:
 
@@ -31,7 +65,7 @@ Standard Operating Procedures (SOPs) for systems engineering, operations, and bu
 
 ---
 
-## 3. Incident Response Framework & Specialized Runbooks
+## 6. Incident Response Framework & Specialized Runbooks
 
 Operational runbooks for rapid containment, eradication, and post-incident reporting:
 
@@ -47,17 +81,17 @@ Operational runbooks for rapid containment, eradication, and post-incident repor
 
 ---
 
-## 4. Disaster Recovery Rehearsal Evidence & Records
+## 7. Disaster Recovery Rehearsal Evidence & Records
 
 Records of executed restore drills verifying actual recovery times and data integrity:
 
-| Rehearsal Date | Scope                                       | Measured RTO                  | Checksum Status | Report Record                                                                                                                       |
-| :------------- | :------------------------------------------ | :---------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-| **2026-11-13** | Air-Gapped Synthetic Rehearsal (Full Stack) | **1.360 Seconds** (1359.8 ms) | SHA-256 Passed  | [restore_drill_report_20261113.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/dr_records/restore_drill_report_20261113.md) |
+| Rehearsal Date | Scope                                       | Measured RTO                   | Checksum Status | Report Record                                                                                                                       |
+| :------------- | :------------------------------------------ | :----------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| **2026-11-13** | Air-Gapped Synthetic Rehearsal (Full Stack) | **1.289 Seconds** (1288.87 ms) | SHA-256 Passed  | [restore_drill_report_20261113.md](file:///c:/Users/MSI/Desktop/MANAGE/docs/operations/dr_records/restore_drill_report_20261113.md) |
 
 ---
 
-## 5. Infrastructure Manifests
+## 8. Infrastructure Manifests
 
 All infrastructure-as-code manifests are located under [infra/](file:///c:/Users/MSI/Desktop/MANAGE/infra):
 
