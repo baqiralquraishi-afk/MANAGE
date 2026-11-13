@@ -1,0 +1,104 @@
+# ==============================================================================
+# Humanity Platform — Traefik v3.2 Dynamic Configuration (Reverse Proxy & TLS)
+# Hardened for Humanitarian Operations in Iraq
+# ==============================================================================
+
+http:
+  # ----------------------------------------------------------------------------
+  # ROUTERS
+  # ----------------------------------------------------------------------------
+  routers:
+    # 1. Next.js Web Admin Application
+    web-router:
+      rule: 'Host(`humanity.staging.internal`) && !PathPrefix(`/rest`, `/auth`, `/storage`)'
+      entryPoints:
+        - 'websecure'
+      service: 'web-service'
+      middlewares:
+        - 'security-headers'
+        - 'rate-limit'
+      tls:
+        options: 'strict-tls'
+
+    # 2. Supabase API Gateway (Kong routing to PostgREST, GoTrue, Storage)
+    api-router:
+      rule: 'Host(`humanity.staging.internal`) && PathPrefix(`/rest`, `/auth`, `/storage`)'
+      entryPoints:
+        - 'websecure'
+      service: 'kong-service'
+      middlewares:
+        - 'security-headers'
+        - 'api-rate-limit'
+      tls:
+        options: 'strict-tls'
+
+  # ----------------------------------------------------------------------------
+  # SERVICES
+  # ----------------------------------------------------------------------------
+  services:
+    web-service:
+      loadBalancer:
+        servers:
+          - url: 'http://web:3000'
+        healthCheck:
+          path: '/api/health'
+          interval: '10s'
+          timeout: '3s'
+
+    kong-service:
+      loadBalancer:
+        servers:
+          - url: 'http://kong:8000'
+        healthCheck:
+          path: '/rest/v1/'
+          interval: '10s'
+          timeout: '3s'
+
+  # ----------------------------------------------------------------------------
+  # MIDDLEWARES
+  # ----------------------------------------------------------------------------
+  middlewares:
+    # Strict Humanitarian Security Headers (OWASP Top 10 & Field Privacy)
+    security-headers:
+      headers:
+        sslRedirect: true
+        stsSeconds: 63072000 # 2 years HSTS
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: 'strict-origin-when-cross-origin'
+        permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()'
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';"
+
+    # General Web Application Rate Limiter (Anti-DDoS & Brute Force Protection)
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 150
+        period: '1m'
+
+    # Strict API Rate Limiter (Protects GoTrue Auth and Sensitive Mutation Endpoints)
+    api-rate-limit:
+      rateLimit:
+        average: 60
+        burst: 80
+        period: '1m'
+
+# ------------------------------------------------------------------------------
+# TLS OPTIONS (Strict TLS 1.3 & Forward Secrecy Ciphers)
+# ------------------------------------------------------------------------------
+tls:
+  options:
+    strict-tls:
+      minVersion: 'VersionTLS13'
+      sniStrict: true
+      cipherSuites:
+        - 'TLS_AES_128_GCM_SHA256'
+        - 'TLS_AES_256_GCM_SHA384'
+        - 'TLS_CHACHA20_POLY1305_SHA256'
+      curvePreferences:
+        - 'X25519'
+        - 'CurveP256'
