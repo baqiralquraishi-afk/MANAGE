@@ -20,6 +20,7 @@ let hasErrors = false;
 // 1. Verify files exist
 const filesToCheck = [
   path.join(MIGRATIONS_DIR, '20261113000001_core_schema.sql'),
+  path.join(MIGRATIONS_DIR, '20261113000002_rls_and_storage_policies.sql'),
   SEED_FILE,
   TEST_FILE,
 ];
@@ -88,6 +89,21 @@ for (const filePath of filesToCheck) {
     }
     if (!content.includes('trg_prevent_ledger_modification')) {
       console.error('[ERROR] Missing financial ledger immutability trigger');
+      hasErrors = true;
+    }
+  }
+
+  if (filePath.includes('20261113000002_rls_and_storage_policies.sql')) {
+    if (!content.includes('ENABLE ROW LEVEL SECURITY')) {
+      console.error('[ERROR] Missing ENABLE ROW LEVEL SECURITY in policies migration');
+      hasErrors = true;
+    }
+    if (!content.includes('pol_beneficiaries_select')) {
+      console.error('[ERROR] Missing pol_beneficiaries_select policy');
+      hasErrors = true;
+    }
+    if (!content.includes('documents-private')) {
+      console.error('[ERROR] Missing documents-private storage configuration');
       hasErrors = true;
     }
   }

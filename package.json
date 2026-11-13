@@ -12,12 +12,14 @@
     "build": "pnpm --filter @humanity/contracts build && pnpm --filter web build",
     "lint": "pnpm --recursive --parallel run lint",
     "typecheck": "pnpm --recursive run typecheck",
-    "test": "pnpm --recursive run test",
+    "test:rls": "node --test supabase/tests/rls_authorization_test.mjs",
+    "test": "pnpm --recursive run test && node --test supabase/tests/rls_authorization_test.mjs",
     "format": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
     "verify": "node scripts/verify-setup.js"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
     "prettier": "^3.4.2",
     "typescript": "^5.7.3"
   }
