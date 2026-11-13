@@ -17,7 +17,8 @@
     "test:beneficiaries": "node --test supabase/tests/beneficiary_case_management_test.mjs",
     "test:assistance": "node --test supabase/tests/assistance_financial_workflows_test.mjs",
     "test:supporting": "node --test supabase/tests/supporting_modules_test.mjs",
-    "test": "pnpm --recursive run test && node --test supabase/tests/rls_authorization_test.mjs && node --test supabase/tests/backend_workflows_test.mjs && node --test supabase/tests/beneficiary_case_management_test.mjs && node --test supabase/tests/assistance_financial_workflows_test.mjs && node --test supabase/tests/supporting_modules_test.mjs",
+    "test:sync": "node --test supabase/tests/encrypted_offline_sync_test.mjs",
+    "test": "pnpm --recursive run test && node --test supabase/tests/rls_authorization_test.mjs && node --test supabase/tests/backend_workflows_test.mjs && node --test supabase/tests/beneficiary_case_management_test.mjs && node --test supabase/tests/assistance_financial_workflows_test.mjs && node --test supabase/tests/supporting_modules_test.mjs && node --test supabase/tests/encrypted_offline_sync_test.mjs",
     "format": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
     "verify": "node scripts/verify-setup.js"

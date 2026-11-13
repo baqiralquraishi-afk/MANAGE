@@ -26,6 +26,14 @@ import {
   InAppNotificationSchema,
   OperationalReportFilterSchema,
   ReportExportAuditSchema,
+  SyncMutationStateSchema,
+  PermittedOfflineMutationTypeSchema,
+  ProhibitedOfflineMutationTypeSchema,
+  OFFLINE_BOUNDS,
+  OfflineDraftMutationSchema,
+  SyncConflictStatusSchema,
+  SyncConflictRecordSchema,
+  SyncConflictResolutionRequestSchema,
 } from './index.js';
 
 test('ProgrammeCodeSchema validates all 8 official humanitarian programmes', () => {
@@ -146,6 +154,76 @@ test('SyncMutationContractSchema strictly blocks offline financial approvals', (
     SyncMutationContractSchema.parse({
       ...validOfflineDraft,
       mutationType: 'DISBURSE_FINANCE',
+    }),
+  );
+});
+
+test('OfflineDraftMutationSchema validates versioned bounded draft lifecycle states', () => {
+  const validDraft = {
+    idempotencyKey: '00000000-0000-0000-0000-000000000099',
+    schemaVersion: 1,
+    deviceId: 'field-tablet-device-01',
+    caseworkerId: '00000000-0000-0000-0000-000000000002',
+    mutationType: 'LOG_VISIT' as const,
+    entityTable: 'case_activities',
+    entityId: '50000000-0000-0000-0000-000000000001',
+    payload: { notesAr: 'زيارة ميدانية أولية للمأوى' },
+    baseServerVersion: 1731513600000,
+    state: 'queued' as const,
+  };
+  assert.deepStrictEqual(OfflineDraftMutationSchema.parse(validDraft), validDraft);
+
+  // Prohibited offline approval mutations fail schema validation
+  assert.throws(() =>
+    OfflineDraftMutationSchema.parse({
+      ...validDraft,
+      mutationType: 'APPROVE_CASE',
+    }),
+  );
+
+  assert.throws(() =>
+    OfflineDraftMutationSchema.parse({
+      ...validDraft,
+      mutationType: 'DISBURSE_FINANCE',
+    }),
+  );
+});
+
+test('OFFLINE_BOUNDS enforces strict ADR-003 limits and prohibitions', () => {
+  assert.strictEqual(OFFLINE_BOUNDS.MAX_ASSIGNED_CASES, 50);
+  assert.strictEqual(OFFLINE_BOUNDS.MAX_QUEUED_DRAFTS, 100);
+  assert.strictEqual(OFFLINE_BOUNDS.RETENTION_HORIZON_HOURS, 72);
+  assert.ok(OFFLINE_BOUNDS.PROHIBITED_OFFLINE_MUTATIONS.includes('APPROVE_CASE'));
+  assert.ok(OFFLINE_BOUNDS.PROHIBITED_OFFLINE_MUTATIONS.includes('DISBURSE_FINANCE'));
+});
+
+test('SyncConflictRecordSchema and ResolutionSchema validate conflict lifecycle', () => {
+  const conflictRecord = {
+    conflictId: '80000000-0000-0000-0000-000000000001',
+    entityTable: 'beneficiaries',
+    entityId: '10000000-0000-0000-0000-000000000001',
+    serverState: { phonePrimary: '+9647701111111', updated_at: '2026-11-13T10:00:00Z' },
+    clientState: { phonePrimary: '+9647702222222', updated_at: '2026-11-13T09:00:00Z' },
+    status: 'unresolved' as const,
+  };
+  assert.deepStrictEqual(SyncConflictRecordSchema.parse(conflictRecord), conflictRecord);
+
+  // Resolution requires at least 10 chars notes
+  const validResolution = {
+    conflictId: '80000000-0000-0000-0000-000000000001',
+    resolution: 'manual_merge' as const,
+    mergedPayload: { phonePrimary: '+9647702222222' },
+    resolutionNotes: 'Verified phone update with head of household directly',
+  };
+  assert.deepStrictEqual(
+    SyncConflictResolutionRequestSchema.parse(validResolution),
+    validResolution,
+  );
+
+  assert.throws(() =>
+    SyncConflictResolutionRequestSchema.parse({
+      ...validResolution,
+      resolutionNotes: 'too short',
     }),
   );
 });

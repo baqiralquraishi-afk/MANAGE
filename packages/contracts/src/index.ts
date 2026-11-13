@@ -130,6 +130,114 @@ export const SyncMutationContractSchema = z.object({
 export type SyncMutationContract = z.infer<typeof SyncMutationContractSchema>;
 
 /**
+ * Deterministic Sync Mutation States
+ */
+export const SyncMutationStateSchema = z.enum([
+  'queued',
+  'sent',
+  'accepted',
+  'rejected',
+  'conflict',
+]);
+export type SyncMutationState = z.infer<typeof SyncMutationStateSchema>;
+
+/**
+ * Offline Permitted vs Prohibited Mutation Types
+ */
+export const PermittedOfflineMutationTypeSchema = z.enum([
+  'CREATE_DRAFT',
+  'SUBMIT_ASSESSMENT',
+  'LOG_VISIT',
+  'UPDATE_APPOINTMENT',
+  'REGISTER_BENEFICIARY',
+  'LOG_CASE_NOTE',
+  'RECORD_CONSENT',
+]);
+export type PermittedOfflineMutationType = z.infer<typeof PermittedOfflineMutationTypeSchema>;
+
+export const ProhibitedOfflineMutationTypeSchema = z.enum([
+  'APPROVE_CASE',
+  'REJECT_CASE',
+  'APPROVE_FINANCE',
+  'DISBURSE_FINANCE',
+  'POST_LEDGER_ENTRY',
+  'RELEASE_PAYMENT',
+]);
+export type ProhibitedOfflineMutationType = z.infer<typeof ProhibitedOfflineMutationTypeSchema>;
+
+/**
+ * Offline Storage Bounded Configuration (ADR-003)
+ */
+export const OFFLINE_BOUNDS = {
+  MAX_ASSIGNED_CASES: 50,
+  MAX_QUEUED_DRAFTS: 100,
+  RETENTION_HORIZON_HOURS: 72,
+  PROHIBITED_OFFLINE_MUTATIONS: [
+    'APPROVE_CASE',
+    'REJECT_CASE',
+    'APPROVE_FINANCE',
+    'DISBURSE_FINANCE',
+    'POST_LEDGER_ENTRY',
+    'RELEASE_PAYMENT',
+  ] as const,
+} as const;
+
+/**
+ * Versioned Offline Draft Mutation Schema
+ */
+export const OfflineDraftMutationSchema = z.object({
+  idempotencyKey: z.string().min(16).max(64),
+  schemaVersion: z.number().int().min(1).default(1),
+  deviceId: z.string().min(8).max(64),
+  caseworkerId: z.string().uuid(),
+  mutationType: PermittedOfflineMutationTypeSchema,
+  entityTable: z.string().min(1).max(64),
+  entityId: z.string().uuid().optional(),
+  payload: z.record(z.any()),
+  baseServerVersion: z.number().int().nonnegative().default(0),
+  state: SyncMutationStateSchema.default('queued'),
+  errorMessage: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
+});
+export type OfflineDraftMutation = z.infer<typeof OfflineDraftMutationSchema>;
+
+/**
+ * Sync Conflict Status & Schemas
+ */
+export const SyncConflictStatusSchema = z.enum([
+  'unresolved',
+  'resolved_server',
+  'resolved_client',
+  'resolved_merged',
+]);
+export type SyncConflictStatus = z.infer<typeof SyncConflictStatusSchema>;
+
+export const SyncConflictRecordSchema = z.object({
+  conflictId: z.string().uuid(),
+  mutationId: z.string().uuid().optional(),
+  entityTable: z.string().min(1).max(64),
+  entityId: z.string().uuid(),
+  serverState: z.record(z.any()),
+  clientState: z.record(z.any()),
+  status: SyncConflictStatusSchema.default('unresolved'),
+  detectedAt: z.string().datetime().optional(),
+  resolvedBy: z.string().uuid().optional(),
+  resolvedAt: z.string().datetime().optional(),
+  resolutionNotes: z.string().optional(),
+});
+export type SyncConflictRecord = z.infer<typeof SyncConflictRecordSchema>;
+
+export const SyncConflictResolutionRequestSchema = z.object({
+  conflictId: z.string().uuid(),
+  resolution: z.enum(['use_server', 'use_client', 'manual_merge']),
+  mergedPayload: z.record(z.any()).optional(),
+  resolutionNotes: z
+    .string()
+    .min(10, 'Resolution notes must be at least 10 characters for audit compliance'),
+});
+export type SyncConflictResolutionRequest = z.infer<typeof SyncConflictResolutionRequestSchema>;
+
+/**
  * Beneficiary Consent Capture Schema
  */
 export const ConsentCaptureSchema = z.object({

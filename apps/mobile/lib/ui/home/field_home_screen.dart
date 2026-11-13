@@ -9,12 +9,17 @@ import '../appointments/appointments_screen.dart';
 import '../beneficiaries/beneficiary_register_screen.dart';
 import '../beneficiaries/beneficiary_search_screen.dart';
 import '../cases/case_detail_screen.dart';
+import '../sync/offline_queue_screen.dart';
+import '../../core/storage/encrypted_offline_db.dart';
+import '../../core/storage/offline_sync_manager.dart';
 
 class FieldHomeScreen extends StatefulWidget {
   final AuthService authService;
   final CaseworkService caseworkService;
   final LocaleState localeState;
   final VoidCallback onToggleLocale;
+  final EncryptedOfflineDb? offlineDb;
+  final OfflineSyncManager? syncManager;
 
   const FieldHomeScreen({
     super.key,
@@ -22,6 +27,8 @@ class FieldHomeScreen extends StatefulWidget {
     required this.caseworkService,
     required this.localeState,
     required this.onToggleLocale,
+    this.offlineDb,
+    this.syncManager,
   });
 
   @override
@@ -273,7 +280,21 @@ class _FieldHomeScreenState extends State<FieldHomeScreen> {
                   _QuickActionButton(
                     icon: Icons.sync,
                     title: AppTranslations.get('sync_now', lang),
-                    onTap: _handleSync,
+                    onTap: () {
+                      if (widget.offlineDb != null && widget.syncManager != null) {
+                        Navigator.push<void>(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (ctx) => OfflineQueueScreen(
+                              offlineDb: widget.offlineDb!,
+                              syncManager: widget.syncManager!,
+                            ),
+                          ),
+                        );
+                      } else {
+                        _handleSync();
+                      }
+                    },
                   ),
                 ],
               ),

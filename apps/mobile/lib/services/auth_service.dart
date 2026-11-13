@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import '../core/config/app_config.dart';
 import '../core/storage/secure_storage_service.dart';
+import '../core/storage/encrypted_offline_db.dart';
 import '../models/auth_user.dart';
 
 class AuthService extends ChangeNotifier {
   final AppConfig config;
   final SecureStorageService secureStorage;
+  final EncryptedOfflineDb? offlineDb;
 
   AuthUser? _currentUser;
   bool _isSessionExpired = false;
@@ -13,6 +15,7 @@ class AuthService extends ChangeNotifier {
   AuthService({
     required this.config,
     required this.secureStorage,
+    this.offlineDb,
   });
 
   AuthUser? get currentUser => _currentUser;
@@ -72,6 +75,8 @@ class AuthService extends ChangeNotifier {
     _currentUser = null;
     _isSessionExpired = false;
     await secureStorage.clearAuthSession();
+    // ADR-003: Mandatory logout cleanup purges encrypted local database
+    await offlineDb?.logoutCleanup();
     notifyListeners();
   }
 }

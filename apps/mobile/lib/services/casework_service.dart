@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../core/storage/offline_sync_queue.dart';
+import '../core/storage/encrypted_offline_db.dart';
 import '../models/auth_user.dart';
 import '../models/beneficiary.dart';
 import '../models/case_record.dart';
@@ -10,9 +11,10 @@ import '../models/document_item.dart';
 
 class CaseworkService extends ChangeNotifier {
   final OfflineSyncQueue offlineQueue;
+  final EncryptedOfflineDb? encryptedDb;
   bool _isOnline = true;
 
-  CaseworkService({required this.offlineQueue});
+  CaseworkService({required this.offlineQueue, this.encryptedDb});
 
   bool get isOnline => _isOnline;
   int get pendingSyncCount => offlineQueue.pendingCount;

@@ -26,6 +26,7 @@ const filesToCheck = [
   path.join(MIGRATIONS_DIR, '20261113000005_beneficiary_case_management.sql'),
   path.join(MIGRATIONS_DIR, '20261113000006_assistance_financial_workflows.sql'),
   path.join(MIGRATIONS_DIR, '20261113000007_supporting_modules.sql'),
+  path.join(MIGRATIONS_DIR, '20261113000008_encrypted_offline_sync.sql'),
   SEED_FILE,
   TEST_FILE,
 ];

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/app_config.dart';
 import 'core/localization/locale_provider.dart';
+import 'core/storage/encrypted_offline_db.dart';
+import 'core/storage/offline_sync_manager.dart';
 import 'core/storage/offline_sync_queue.dart';
 import 'core/storage/secure_storage_service.dart';
 import 'core/theme/app_theme.dart';
@@ -22,6 +24,11 @@ final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
 });
 
+final encryptedOfflineDbProvider = Provider<EncryptedOfflineDb>((ref) {
+  final storage = ref.watch(secureStorageProvider);
+  return EncryptedOfflineDb(secureStorage: storage);
+});
+
 final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
   return OfflineSyncQueue();
 });
@@ -29,12 +36,20 @@ final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
 final authServiceProvider = ChangeNotifierProvider<AuthService>((ref) {
   final config = ref.watch(appConfigProvider);
   final storage = ref.watch(secureStorageProvider);
-  return AuthService(config: config, secureStorage: storage);
+  final db = ref.watch(encryptedOfflineDbProvider);
+  return AuthService(config: config, secureStorage: storage, offlineDb: db);
+});
+
+final offlineSyncManagerProvider = ChangeNotifierProvider<OfflineSyncManager>((ref) {
+  final db = ref.watch(encryptedOfflineDbProvider);
+  final auth = ref.watch(authServiceProvider);
+  return OfflineSyncManager(db: db, authService: auth);
 });
 
 final caseworkServiceProvider = ChangeNotifierProvider<CaseworkService>((ref) {
   final queue = ref.watch(offlineSyncQueueProvider);
-  return CaseworkService(offlineQueue: queue);
+  final db = ref.watch(encryptedOfflineDbProvider);
+  return CaseworkService(offlineQueue: queue, encryptedDb: db);
 });
 
 void main() {
@@ -89,11 +104,15 @@ class HumanityMobileApp extends ConsumerWidget {
           }
 
           if (authService.isAuthenticated) {
+            final offlineDb = ref.watch(encryptedOfflineDbProvider);
+            final syncManager = ref.watch(offlineSyncManagerProvider);
             return FieldHomeScreen(
               authService: authService,
               caseworkService: caseworkService,
               localeState: localeState,
               onToggleLocale: () => ref.read(localeProvider.notifier).toggleLocale(),
+              offlineDb: offlineDb,
+              syncManager: syncManager,
             );
           }
 

@@ -61,6 +61,10 @@ class SecureStorageService {
     await _delete(keyUserRole);
   }
 
+  Future<void> writeData(String key, String value) => _write(key, value);
+  Future<String?> readData(String key) => _read(key);
+  Future<void> deleteData(String key) => _delete(key);
+
   Future<void> _write(String key, String value) async {
     if (_useFallback) {
       _memoryFallback[key] = value;
