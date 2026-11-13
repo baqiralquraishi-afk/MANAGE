@@ -53,7 +53,9 @@ function scanForPotentialSecrets(dir) {
       entry.name === 'node_modules' ||
       entry.name === '.git' ||
       entry.name === '.next' ||
-      entry.name === 'dist'
+      entry.name === 'dist' ||
+      entry.name === '.dart_tool' ||
+      entry.name === 'build'
     ) {
       continue;
     }

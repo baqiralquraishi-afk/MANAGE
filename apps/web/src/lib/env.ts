@@ -14,8 +14,7 @@ export interface PublicClientEnv {
 export function getPublicClientEnv(): PublicClientEnv {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
   const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_for_local_development_only.example';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy_anon_key_for_local_development_only';
   const defaultLocale = (process.env.NEXT_PUBLIC_DEFAULT_LOCALE === 'en' ? 'en' : 'ar') as
     'ar' | 'en';
   const appEnv = (process.env.NEXT_PUBLIC_APP_ENV || 'development') as

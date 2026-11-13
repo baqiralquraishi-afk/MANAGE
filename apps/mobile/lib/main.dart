@@ -2,6 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/config/app_config.dart';
+import 'core/localization/locale_provider.dart';
+import 'core/storage/offline_sync_queue.dart';
+import 'core/storage/secure_storage_service.dart';
+import 'core/theme/app_theme.dart';
+import 'services/auth_service.dart';
+import 'services/casework_service.dart';
+import 'ui/auth/login_screen.dart';
+import 'ui/auth/session_expired_dialog.dart';
+import 'ui/home/field_home_screen.dart';
+
+// Dependency injection providers
+final appConfigProvider = Provider<AppConfig>((ref) {
+  return AppConfig();
+});
+
+final secureStorageProvider = Provider<SecureStorageService>((ref) {
+  return SecureStorageService();
+});
+
+final offlineSyncQueueProvider = Provider<OfflineSyncQueue>((ref) {
+  return OfflineSyncQueue();
+});
+
+final authServiceProvider = ChangeNotifierProvider<AuthService>((ref) {
+  final config = ref.watch(appConfigProvider);
+  final storage = ref.watch(secureStorageProvider);
+  return AuthService(config: config, secureStorage: storage);
+});
+
+final caseworkServiceProvider = ChangeNotifierProvider<CaseworkService>((ref) {
+  final queue = ref.watch(offlineSyncQueueProvider);
+  return CaseworkService(offlineQueue: queue);
+});
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
@@ -11,31 +46,21 @@ void main() {
   );
 }
 
-class HumanityMobileApp extends StatefulWidget {
+class HumanityMobileApp extends ConsumerWidget {
   const HumanityMobileApp({super.key});
 
   @override
-  State<HumanityMobileApp> createState() => _HumanityMobileAppState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localeState = ref.watch(localeProvider);
+    final authService = ref.watch(authServiceProvider);
+    final caseworkService = ref.watch(caseworkServiceProvider);
 
-class _HumanityMobileAppState extends State<HumanityMobileApp> {
-  Locale _locale = const Locale('ar'); // Arabic RTL default
-
-  void _toggleLocale() {
-    setState(() {
-      _locale = _locale.languageCode == 'ar'
-          ? const Locale('en')
-          : const Locale('ar');
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Humanity Mobile',
-      locale: _locale,
+      debugShowCheckedModeBanner: false,
+      locale: localeState.locale,
       supportedLocales: const [
-        Locale('ar'), // Arabic RTL
+        Locale('ar'), // Arabic RTL default
         Locale('en'), // English LTR
       ],
       localizationsDelegates: const [
@@ -43,145 +68,42 @@ class _HumanityMobileAppState extends State<HumanityMobileApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF16A34A),
-          brightness: Brightness.light,
-        ),
-      ),
-      home: FieldHomeScreen(
-        currentLocale: _locale,
-        onToggleLocale: _toggleLocale,
-      ),
-    );
-  }
-}
-
-class FieldHomeScreen extends StatelessWidget {
-  final Locale currentLocale;
-  final VoidCallback onToggleLocale;
-
-  const FieldHomeScreen({
-    super.key,
-    required this.currentLocale,
-    required this.onToggleLocale,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isArabic = currentLocale.languageCode == 'ar';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isArabic ? 'تطبيق المسح الميداني — إنسانية' : 'Humanity Field Caseworker',
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: onToggleLocale,
-            icon: const Icon(Icons.language),
-            label: Text(isArabic ? 'English' : 'عربي'),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.shield_outlined, size: 48, color: Color(0xFF16A34A)),
-                      const SizedBox(height: 8),
-                      Text(
-                        isArabic
-                            ? 'نظام إدارة الحالات الإنسانية (العراق)'
-                            : 'Humanitarian Case Management (Iraq)',
-                        style: Theme.of(context).textTheme.titleMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isArabic
-                            ? 'المزامنة المشفرة دون اتصال بالإنترنت'
-                            : 'Encrypted Offline Field Synchronization',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
+      theme: AppTheme.lightTheme,
+      home: Builder(
+        builder: (context) {
+          // Listen for session expiry and show dialog
+          if (authService.isSessionExpired) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => SessionExpiredDialog(
+                  language: localeState.language,
+                  onReAuthenticate: () {
+                    Navigator.pop(ctx);
+                    authService.reAuthenticate();
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView(
-                  children: [
-                    _ProgrammeTile(
-                      code: 'FIN',
-                      nameAr: 'المساعدات النقدية والمالية',
-                      nameEn: 'Financial Assistance',
-                      icon: Icons.payments_outlined,
-                      isArabic: isArabic,
-                    ),
-                    _ProgrammeTile(
-                      code: 'FOD',
-                      nameAr: 'الأمن الغذائي والتغذية',
-                      nameEn: 'Food Security & Nutrition',
-                      icon: Icons.restaurant_outlined,
-                      isArabic: isArabic,
-                    ),
-                    _ProgrammeTile(
-                      code: 'MED',
-                      nameAr: 'الرعاية الصحية والدعم الطبي',
-                      nameEn: 'Medical & Health Support',
-                      icon: Icons.medical_services_outlined,
-                      isArabic: isArabic,
-                    ),
-                    _ProgrammeTile(
-                      code: 'HOU',
-                      nameAr: 'المأوى وإعادة التأهيل',
-                      nameEn: 'Housing & Shelter',
-                      icon: Icons.home_work_outlined,
-                      isArabic: isArabic,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+              );
+            });
+          }
+
+          if (authService.isAuthenticated) {
+            return FieldHomeScreen(
+              authService: authService,
+              caseworkService: caseworkService,
+              localeState: localeState,
+              onToggleLocale: () => ref.read(localeProvider.notifier).toggleLocale(),
+            );
+          }
+
+          return LoginScreen(
+            authService: authService,
+            localeState: localeState,
+            onToggleLocale: () => ref.read(localeProvider.notifier).toggleLocale(),
+          );
+        },
       ),
     );
   }
 }
-
-class _ProgrammeTile extends StatelessWidget {
-  final String code;
-  final String nameAr;
-  final String nameEn;
-  final IconData icon;
-  final bool isArabic;
-
-  const _ProgrammeTile({
-    required this.code,
-    required this.nameAr,
-    required this.nameEn,
-    required this.icon,
-    required this.isArabic,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: const Color(0xFF16A34A)),
-      title: Text(isArabic ? nameAr : nameEn),
-      subtitle: Text('[$code]'),
-      trailing: const Icon(Icons.chevron_right),
-    );
-  }
-}
-
