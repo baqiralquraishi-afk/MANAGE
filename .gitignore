@@ -55,4 +55,6 @@ Desktop.ini
 coverage/
 *.lcov
 test-results/
+backups/
+
 

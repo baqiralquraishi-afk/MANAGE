@@ -22,6 +22,7 @@
     "test:adversarial": "node --test supabase/tests/security_adversarial_test.mjs",
     "test": "pnpm --recursive run test && node --test supabase/tests/rls_authorization_test.mjs && node --test supabase/tests/backend_workflows_test.mjs && node --test supabase/tests/beneficiary_case_management_test.mjs && node --test supabase/tests/assistance_financial_workflows_test.mjs && node --test supabase/tests/supporting_modules_test.mjs && node --test supabase/tests/encrypted_offline_sync_test.mjs && node --test supabase/tests/audit_and_security_hardening_test.mjs && node --test supabase/tests/security_adversarial_test.mjs",
     "benchmark": "node scripts/performance-benchmark.js",
+    "dr:drill": "node scripts/restore-drill.js",
     "verify:licenses": "node scripts/verify-licenses.js",
     "format": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
