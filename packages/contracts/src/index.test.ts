@@ -10,6 +10,12 @@ import {
   FinancialDisbursementContractSchema,
   FinancialReversalContractSchema,
   SyncMutationContractSchema,
+  BeneficiaryRegistrationSchema,
+  ConsentCaptureSchema,
+  HouseholdCreationSchema,
+  DuplicateReviewDecisionSchema,
+  CaseCreationSchema,
+  CaseClosureSchema,
 } from './index.js';
 
 test('ProgrammeCodeSchema validates all 8 official humanitarian programmes', () => {
@@ -130,6 +136,103 @@ test('SyncMutationContractSchema strictly blocks offline financial approvals', (
     SyncMutationContractSchema.parse({
       ...validOfflineDraft,
       mutationType: 'DISBURSE_FINANCE',
+    }),
+  );
+});
+
+test('BeneficiaryRegistrationSchema enforces mandatory informed consent and identity fields', () => {
+  const validRegistration = {
+    nationalIdType: 'national_unified_card' as const,
+    nationalIdNumber: '199512345678',
+    fullNameAr: 'زينب كاظم حسن',
+    motherNameAr: 'مريم علي',
+    dateOfBirth: '1995-04-12',
+    gender: 'female' as const,
+    phonePrimary: '+9647701234567',
+    governorateId: 'IQ-BG',
+    districtId: 'IQ-BG-KR',
+    addressDetails: 'بغداد - الكرخ - حي الجامعة',
+    displacementStatus: 'idp' as const,
+    vulnerabilityFlags: ['female_headed_household', 'chronic_illness'],
+    consent: {
+      hasGivenGeneralConsent: true as const,
+      hasGivenDataSharingConsent: false,
+      consentVersion: 'v1.0-2026',
+      language: 'ar' as const,
+    },
+  };
+
+  assert.deepStrictEqual(BeneficiaryRegistrationSchema.parse(validRegistration), validRegistration);
+
+  // Missing or false consent must fail
+  assert.throws(() =>
+    BeneficiaryRegistrationSchema.parse({
+      ...validRegistration,
+      consent: {
+        ...validRegistration.consent,
+        hasGivenGeneralConsent: false,
+      },
+    }),
+  );
+});
+
+test('DuplicateReviewDecisionSchema strictly requires human decision notes and valid decision', () => {
+  const validDecision = {
+    duplicateReviewId: '40000000-0000-0000-0000-000000000001',
+    decision: 'confirmed_duplicate' as const,
+    decisionNotes: 'Confirmed duplicate via matching national unified ID and mother name',
+    primaryBeneficiaryId: '30000000-0000-0000-0000-000000000001',
+  };
+
+  assert.deepStrictEqual(DuplicateReviewDecisionSchema.parse(validDecision), validDecision);
+
+  // Empty decision notes must fail
+  assert.throws(() =>
+    DuplicateReviewDecisionSchema.parse({
+      ...validDecision,
+      decisionNotes: 'short',
+    }),
+  );
+});
+
+test('CaseCreationSchema validates programme sector and required scope', () => {
+  const validCase = {
+    beneficiaryId: '30000000-0000-0000-0000-000000000001',
+    householdId: '20000000-0000-0000-0000-000000000001',
+    programmeCode: 'FIN' as const,
+    priority: 'high' as const,
+    governorateId: 'IQ-BG',
+  };
+
+  const parsed = CaseCreationSchema.parse(validCase);
+  assert.strictEqual(parsed.beneficiaryId, validCase.beneficiaryId);
+  assert.strictEqual(parsed.programmeCode, 'FIN');
+  assert.strictEqual(parsed.priority, 'high');
+  assert.strictEqual(parsed.governorateId, 'IQ-BG');
+
+  // Invalid programme sector must fail
+  assert.throws(() =>
+    CaseCreationSchema.parse({
+      ...validCase,
+      programmeCode: 'INVALID_SECTOR' as any,
+    }),
+  );
+});
+
+test('CaseClosureSchema requires detailed closure reason and justification', () => {
+  const validClosure = {
+    caseId: '50000000-0000-0000-0000-000000000001',
+    closureReason: 'All scheduled cash installments disbursed and verified in field audit',
+    justification: 'Programme completion criteria fulfilled',
+  };
+
+  assert.deepStrictEqual(CaseClosureSchema.parse(validClosure), validClosure);
+
+  // Inadequate closure reason must fail
+  assert.throws(() =>
+    CaseClosureSchema.parse({
+      ...validClosure,
+      closureReason: 'done',
     }),
   );
 });

@@ -130,6 +130,124 @@ export const SyncMutationContractSchema = z.object({
 export type SyncMutationContract = z.infer<typeof SyncMutationContractSchema>;
 
 /**
+ * Beneficiary Consent Capture Schema
+ */
+export const ConsentCaptureSchema = z.object({
+  hasGivenGeneralConsent: z.literal(true, {
+    errorMap: () => ({
+      message: 'Informed general consent is strictly mandatory for beneficiary registration',
+    }),
+  }),
+  hasGivenDataSharingConsent: z.boolean().default(false),
+  consentVersion: z.string().default('v1.0-2026'),
+  language: SupportedLocaleSchema.default('ar'),
+});
+export type ConsentCapture = z.infer<typeof ConsentCaptureSchema>;
+
+/**
+ * Beneficiary Registration Schema
+ */
+export const BeneficiaryRegistrationSchema = z.object({
+  nationalIdType: z.enum(['national_unified_card', 'civil_id', 'passport', 'temporary_residence']),
+  nationalIdNumber: z.string().min(5).max(64),
+  fullNameAr: z.string().min(3, 'Full name in Arabic is required'),
+  fullNameEn: z.string().optional().nullable(),
+  motherNameAr: z.string().min(2, "Mother's name is required for identity verification"),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be YYYY-MM-DD'),
+  gender: z.enum(['male', 'female']),
+  phonePrimary: z.string().min(8).max(32),
+  phoneSecondary: z.string().max(32).optional().nullable(),
+  governorateId: z.string().min(2).max(10),
+  districtId: z.string().min(2).max(20),
+  addressDetails: z.string().min(5),
+  displacementStatus: z.enum(['idp', 'refugee', 'returnee', 'host_community']),
+  vulnerabilityFlags: z.array(z.string()).default([]),
+  consent: ConsentCaptureSchema,
+});
+export type BeneficiaryRegistration = z.infer<typeof BeneficiaryRegistrationSchema>;
+
+/**
+ * Household Creation & Membership Schema
+ */
+export const HouseholdCreationSchema = z.object({
+  headBeneficiaryId: z.string().uuid(),
+  governorateId: z.string().min(2).max(10),
+  districtId: z.string().min(2).max(20),
+  shelterType: z.enum([
+    'owned_house',
+    'rented_house',
+    'informal_settlement',
+    'camp_tent',
+    'host_family',
+  ]),
+  members: z
+    .array(
+      z.object({
+        beneficiaryId: z.string().uuid(),
+        relationshipToHead: z.enum([
+          'head',
+          'spouse',
+          'son',
+          'daughter',
+          'parent',
+          'sibling',
+          'other_relative',
+        ]),
+      }),
+    )
+    .default([]),
+});
+export type HouseholdCreation = z.infer<typeof HouseholdCreationSchema>;
+
+/**
+ * Human Duplicate Review Decision Schema
+ * Note: Automated merging is strictly prohibited by policy. Human review required.
+ */
+export const DuplicateReviewDecisionSchema = z.object({
+  duplicateReviewId: z.string().uuid(),
+  decision: z.enum(['confirmed_duplicate', 'dismissed_false_positive']),
+  decisionNotes: z.string().min(10, 'Decision justification must be at least 10 characters'),
+  primaryBeneficiaryId: z.string().uuid().optional(),
+});
+export type DuplicateReviewDecision = z.infer<typeof DuplicateReviewDecisionSchema>;
+
+/**
+ * Case Creation Schema
+ */
+export const CaseCreationSchema = z.object({
+  beneficiaryId: z.string().uuid(),
+  householdId: z.string().uuid(),
+  programmeCode: ProgrammeCodeSchema,
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  governorateId: z.string().min(2).max(10),
+  assignedCaseworkerId: z.string().uuid().optional().nullable(),
+  initialNotes: z.string().optional().nullable(),
+});
+export type CaseCreation = z.infer<typeof CaseCreationSchema>;
+
+/**
+ * Case Activity Logging Schema
+ */
+export const CaseActivityLogSchema = z.object({
+  caseId: z.string().uuid(),
+  visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Visit date must be YYYY-MM-DD'),
+  gpsLatitude: z.number().min(-90).max(90).optional().nullable(),
+  gpsLongitude: z.number().min(-180).max(180).optional().nullable(),
+  notes: z.string().min(5, 'Visit notes must be at least 5 characters'),
+});
+export type CaseActivityLog = z.infer<typeof CaseActivityLogSchema>;
+
+/**
+ * Case Closure Schema
+ */
+export const CaseClosureSchema = z.object({
+  caseId: z.string().uuid(),
+  closureReason: z.string().min(10, 'Closure reason must be at least 10 characters'),
+  justification: z.string().min(5, 'Closure justification must be at least 5 characters'),
+});
+export type CaseClosure = z.infer<typeof CaseClosureSchema>;
+
+/**
  * Geographic Scope
  */
 export interface GeographicScope {
