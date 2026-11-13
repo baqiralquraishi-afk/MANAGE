@@ -296,6 +296,111 @@ export const ProgrammeFinancialLimitSchema = z.object({
 export type ProgrammeFinancialLimit = z.infer<typeof ProgrammeFinancialLimitSchema>;
 
 /**
+ * Supporting Modules Contracts (Phase 11)
+ */
+
+export const DocumentMetadataRegistrationSchema = z.object({
+  beneficiaryId: z.string().uuid(),
+  caseId: z.string().uuid().optional().nullable(),
+  documentCategory: z.enum([
+    'national_id',
+    'residence_card',
+    'medical_report',
+    'socioeconomic_proof',
+    'legal_power_of_attorney',
+    'other',
+  ]),
+  storagePath: z
+    .string()
+    .min(5)
+    .regex(/^[a-zA-Z0-9_\-\.\/]+$/, 'Must be an opaque storage path without directory traversal')
+    .refine(p => !p.includes('..'), 'Directory traversal is strictly forbidden'),
+  fileNameOriginal: z.string().min(1).max(255),
+  mimeType: z.enum(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']),
+  fileSizeBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(10485760, 'Maximum allowed file size is 10MB (10,485,760 bytes)'),
+  checksumSha256: z
+    .string()
+    .regex(/^[a-fA-F0-9]{64}$/, 'Must be a 64-character SHA-256 hex string')
+    .optional(),
+});
+export type DocumentMetadataRegistration = z.infer<typeof DocumentMetadataRegistrationSchema>;
+
+export const DocumentDownloadRequestSchema = z.object({
+  documentId: z.string().uuid(),
+  expiresInSeconds: z.number().int().min(60).max(900).default(300),
+});
+export type DocumentDownloadRequest = z.infer<typeof DocumentDownloadRequestSchema>;
+
+export const AppointmentScheduleSchema = z.object({
+  caseId: z.string().uuid(),
+  scheduledTime: z.string().datetime(),
+  locationType: z.enum([
+    'coordination_center',
+    'field_office',
+    'household_visit',
+    'partner_facility',
+    'mobile_clinic',
+  ]),
+  officerId: z.string().uuid(),
+  notes: z.string().max(1000).optional(),
+});
+export type AppointmentSchedule = z.infer<typeof AppointmentScheduleSchema>;
+
+export const AppointmentStatusUpdateSchema = z.object({
+  appointmentId: z.string().uuid(),
+  status: z.enum(['completed', 'cancelled', 'no_show']),
+  notes: z.string().max(1000).optional(),
+});
+export type AppointmentStatusUpdate = z.infer<typeof AppointmentStatusUpdateSchema>;
+
+export const InAppNotificationSchema = z.object({
+  recipientId: z.string().uuid(),
+  titleAr: z.string().min(1),
+  titleEn: z.string().min(1),
+  messageAr: z.string().min(1),
+  messageEn: z.string().min(1),
+  category: z
+    .enum([
+      'system',
+      'approval_required',
+      'case_assigned',
+      'document_access',
+      'appointment',
+      'finance',
+    ])
+    .default('system'),
+  linkUrl: z.string().optional(),
+});
+export type InAppNotification = z.infer<typeof InAppNotificationSchema>;
+
+export const OperationalReportFilterSchema = z.object({
+  reportType: z.enum([
+    'sector_distribution',
+    'casework_velocity',
+    'assistance_delivery',
+    'vulnerability_summary',
+  ]),
+  governorateId: z.string().optional(),
+  programmeCode: ProgrammeCodeSchema.optional(),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).default(0),
+  suppressionThreshold: z.number().int().default(5),
+});
+export type OperationalReportFilter = z.infer<typeof OperationalReportFilterSchema>;
+
+export const ReportExportAuditSchema = z.object({
+  reportType: z.string().min(1),
+  format: z.enum(['csv', 'json', 'pdf']),
+  rowCount: z.number().int().nonnegative(),
+  filters: z.record(z.any()).optional(),
+});
+export type ReportExportAudit = z.infer<typeof ReportExportAuditSchema>;
+
+/**
  * Geographic Scope
  */
 export interface GeographicScope {

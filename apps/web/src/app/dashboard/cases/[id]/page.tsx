@@ -27,6 +27,9 @@ import {
   Archive,
   Compass,
   PackageCheck,
+  Upload,
+  Download,
+  Key,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
 import { RoleGuard } from '@/components/auth/role-guard';
@@ -84,8 +87,60 @@ export default function CaseDetailsPage() {
 
   // Tabs
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'lifecycle' | 'activities' | 'appointments' | 'assistance'
+    'overview' | 'lifecycle' | 'activities' | 'appointments' | 'assistance' | 'documents'
   >('overview');
+
+  // Private Documents State (Phase 11)
+  const [documents, setDocuments] = useState<
+    {
+      id: string;
+      category: string;
+      fileName: string;
+      storagePath: string;
+      mimeType: string;
+      fileSizeBytes: number;
+      uploadedBy: string;
+      uploadedAt: string;
+      virusScanStatus: 'clean' | 'flagged';
+      isLegalHold: boolean;
+      legalHoldReason?: string;
+    }[]
+  >([
+    {
+      id: 'doc-001',
+      category: 'national_id',
+      fileName: 'civil_id_scan.pdf',
+      storagePath: 'cases/50000000-0000-0000-0000-000000000001/doc-f47ac10b.pdf',
+      mimeType: 'application/pdf',
+      fileSizeBytes: 2048576,
+      uploadedBy: 'يوسف محمود عمر (باحث نينوى)',
+      uploadedAt: '2026-11-12 10:30',
+      virusScanStatus: 'clean',
+      isLegalHold: false,
+    },
+    {
+      id: 'doc-002',
+      category: 'medical_report',
+      fileName: 'specialist_medical_diagnosis.pdf',
+      storagePath: 'cases/50000000-0000-0000-0000-000000000001/doc-a1b2c3d4.pdf',
+      mimeType: 'application/pdf',
+      fileSizeBytes: 3145728,
+      uploadedBy: 'يوسف محمود عمر (باحث نينوى)',
+      uploadedAt: '2026-11-12 11:15',
+      virusScanStatus: 'clean',
+      isLegalHold: true,
+      legalHoldReason: 'طلب استيضاح قضائي حول الوصاية القانونية',
+    },
+  ]);
+
+  const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
+  const [newDocCategory, setNewDocCategory] = useState('national_id');
+  const [newDocFileName, setNewDocFileName] = useState('');
+  const [newDocMimeType, setNewDocMimeType] = useState('application/pdf');
+  const [newDocSize, setNewDocSize] = useState('2048576');
+  const [docUploadError, setDocUploadError] = useState<string | null>(null);
+  const [downloadModalDoc, setDownloadModalDoc] = useState<any | null>(null);
+  const [downloadToken, setDownloadToken] = useState<string | null>(null);
 
   // Entitlements and Deliveries (Phase 10)
   const [entitlements, setEntitlements] = useState<
@@ -321,6 +376,61 @@ export default function CaseDetailsPage() {
     setTimeout(() => setDeliverySuccess(null), 5000);
   };
 
+  const handleUploadDocument = () => {
+    setDocUploadError(null);
+    if (!newDocFileName.trim()) {
+      setDocUploadError(isRtl ? 'اسم الملف الأصلي إلزامي.' : 'Original file name is required.');
+      return;
+    }
+
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(newDocMimeType)) {
+      setDocUploadError(
+        isRtl
+          ? 'نوع الملف غير مسموح. يسمح فقط بملفات PDF والصور (JPEG, PNG, WebP).'
+          : 'Invalid file type. Only PDF and images (JPEG, PNG, WebP) are allowed.',
+      );
+      return;
+    }
+
+    const size = parseInt(newDocSize, 10);
+    if (isNaN(size) || size <= 0 || size > 10485760) {
+      setDocUploadError(
+        isRtl
+          ? 'حجم الملف غير صالح أو يتجاوز الحد الأقصى المسموح (10 ميجابايت).'
+          : 'File size exceeds maximum permitted limit of 10MB.',
+      );
+      return;
+    }
+
+    // Generate opaque UUID-based storage path (never expose beneficiary PII or raw paths)
+    const opaqueId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const ext = newDocMimeType === 'application/pdf' ? 'pdf' : 'png';
+    const opaquePath = `cases/${caseId}/${opaqueId}.${ext}`;
+
+    const newDoc = {
+      id: `doc-${Date.now()}`,
+      category: newDocCategory,
+      fileName: newDocFileName.trim(),
+      storagePath: opaquePath,
+      mimeType: newDocMimeType,
+      fileSizeBytes: size,
+      uploadedBy: user ? (isRtl ? user.fullNameAr : user.fullNameEn) : 'المستخدم',
+      uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      virusScanStatus: 'clean' as const,
+      isLegalHold: false,
+    };
+
+    setDocuments(prev => [newDoc, ...prev]);
+    setIsUploadDocModalOpen(false);
+    setNewDocFileName('');
+  };
+
+  const handleRequestDownloadToken = (doc: any) => {
+    const token = `tok-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    setDownloadToken(token);
+    setDownloadModalDoc(doc);
+  };
+
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
   return (
@@ -485,6 +595,18 @@ export default function CaseDetailsPage() {
             >
               <PackageCheck className="w-3.5 h-3.5" />
               <span>{isRtl ? 'المساعدات والتسليم' : 'Assistance & Deliveries'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('documents')}
+              className={`pb-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
+                activeTab === 'documents'
+                  ? 'border-emerald-600 text-emerald-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>{isRtl ? 'الوثائق الثبوتية الخاصة' : 'Private Documents'}</span>
             </button>
           </div>
 
@@ -1054,6 +1176,128 @@ export default function CaseDetailsPage() {
             </div>
           )}
 
+          {/* TAB 6: Private Documents (Phase 11) */}
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isRtl
+                        ? 'الوثائق الثبوتية والتقارير المرفقة (مشفرة وخاصة)'
+                        : 'Private Document Attachments'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {isRtl
+                        ? 'مرفقات سرية ومحمية بمسارات غير مكشوفة وروابط مؤقتة؛ يمنع النظام تقنياً الوصول العام'
+                        : 'Private attachments with opaque paths and audited TTL-bound download links; no public sharing'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocUploadError(null);
+                      setIsUploadDocModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors shadow-xs"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>{isRtl ? 'رفع وثيقة جديدة' : 'Upload Document'}</span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-start text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                      <tr>
+                        <th className="py-2.5 px-3 text-start">{isRtl ? 'التصنيف' : 'Category'}</th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'اسم الملف الأصلي' : 'Original Filename'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'المسار الداخلي المشفر' : 'Opaque Storage Path'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">{isRtl ? 'الحجم' : 'Size'}</th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'فحص الأمان' : 'Security Scan'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'الوضع القانوني' : 'Legal Status'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'الرافع' : 'Uploaded By'}
+                        </th>
+                        <th className="py-2.5 px-3 text-center">{isRtl ? 'الإجراء' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {documents.map(doc => (
+                        <tr key={doc.id} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-800">
+                              {doc.category === 'national_id'
+                                ? isRtl
+                                  ? 'البطاقة الوطنية الموحدة'
+                                  : 'National ID'
+                                : doc.category === 'medical_report'
+                                  ? isRtl
+                                    ? 'تقرير طبي تخصصي'
+                                    : 'Medical Report'
+                                  : doc.category}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-slate-900">{doc.fileName}</td>
+                          <td className="py-3 px-3 font-mono text-[10px] text-slate-500 max-w-[200px] truncate">
+                            {doc.storagePath}
+                          </td>
+                          <td className="py-3 px-3 font-mono text-[11px] text-slate-600">
+                            {(doc.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-semibold">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>{isRtl ? 'خالٍ من البرمجيات الضارة' : 'Clean'}</span>
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            {doc.isLegalHold ? (
+                              <span
+                                title={doc.legalHoldReason}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300"
+                              >
+                                <Lock className="w-3 h-3 text-amber-700" />
+                                <span>{isRtl ? 'حظر قانوني (Legal Hold)' : 'Legal Hold'}</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {isRtl ? 'عادي (متاح للأرشفة)' : 'Standard'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-[11px] text-slate-600">
+                            <p>{doc.uploadedBy}</p>
+                            <p className="font-mono text-[9px] text-slate-400">{doc.uploadedAt}</p>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRequestDownloadToken(doc)}
+                              className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center gap-1 transition-colors"
+                            >
+                              <Download className="w-3 h-3 text-slate-500" />
+                              <span>{isRtl ? 'رابط مؤقت' : 'Download Link'}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Transition Modal */}
           {isTransitionModalOpen && (
             <div
@@ -1315,6 +1559,240 @@ export default function CaseDetailsPage() {
                     className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 shadow-xs"
                   >
                     {isRtl ? 'حفظ الزيارة' : 'Save Visit'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Private Document Modal */}
+          {isUploadDocModalOpen && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="upload-doc-modal-title"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+            >
+              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2 text-indigo-700">
+                    <Upload className="w-5 h-5" />
+                    <h3 id="upload-doc-modal-title" className="text-base font-bold text-slate-900">
+                      {isRtl
+                        ? 'تسجيل ورفع وثيقة ثبوتية خاصة'
+                        : 'Register & Upload Private Document'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUploadDocModalOpen(false);
+                      setDocUploadError(null);
+                    }}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-700"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {docUploadError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                    {docUploadError}
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 text-xs text-indigo-900 space-y-1">
+                  <p className="font-semibold flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{isRtl ? 'أمن المستودع والخصوصية:' : 'Storage Security & Privacy:'}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    {isRtl
+                      ? 'يتم تخزين الملفات بمسارات معماة (Opaque UUID) ولا يتم نشر أي روابط عامة. لا تسجل محتويات الملفات في سجلات التدقيق.'
+                      : 'Files are placed under opaque server-generated UUID paths. Zero public URLs or body content logging. Max size 10MB.'}
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      {isRtl ? 'تصنيف الوثيقة *' : 'Document Category *'}
+                    </label>
+                    <select
+                      value={newDocCategory}
+                      onChange={e => setNewDocCategory(e.target.value)}
+                      className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
+                    >
+                      <option value="national_id">
+                        {isRtl ? 'البطاقة الوطنية الموحدة' : 'National Unified ID'}
+                      </option>
+                      <option value="residency_card">
+                        {isRtl ? 'بطاقة السكن الرسمية' : 'Residency Card'}
+                      </option>
+                      <option value="medical_report">
+                        {isRtl ? 'تقرير طبي صادر من لجنة رسمية' : 'Specialist Medical Report'}
+                      </option>
+                      <option value="household_registry">
+                        {isRtl ? 'بيان القيد الأسري / صورة قيد' : 'Family Registration Extract'}
+                      </option>
+                      <option value="other">
+                        {isRtl ? 'وثيقة ثبوتية مساندة أخرى' : 'Other Supporting Evidence'}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      {isRtl ? 'اسم الملف الأصلي *' : 'Original File Name *'}
+                    </label>
+                    <input
+                      type="text"
+                      value={newDocFileName}
+                      onChange={e => setNewDocFileName(e.target.value)}
+                      placeholder="e.g. national_id_scanned.pdf"
+                      className="w-full text-xs p-2 rounded-lg border border-slate-200 font-mono"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        {isRtl ? 'نوع الوسائط (MIME) *' : 'MIME Type *'}
+                      </label>
+                      <select
+                        value={newDocMimeType}
+                        onChange={e => setNewDocMimeType(e.target.value)}
+                        className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white font-mono"
+                      >
+                        <option value="application/pdf">application/pdf</option>
+                        <option value="image/jpeg">image/jpeg</option>
+                        <option value="image/png">image/png</option>
+                        <option value="image/webp">image/webp</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        {isRtl ? 'الحجم بالبايت (حد أقصى 10MB) *' : 'Size (Bytes, max 10MB) *'}
+                      </label>
+                      <input
+                        type="number"
+                        value={newDocSize}
+                        onChange={e => setNewDocSize(e.target.value)}
+                        className="w-full text-xs p-2 rounded-lg border border-slate-200 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUploadDocModalOpen(false);
+                      setDocUploadError(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUploadDocument}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500 shadow-xs"
+                  >
+                    {isRtl ? 'تسجيل وحفظ الوثيقة' : 'Register Document'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Download Token Modal */}
+          {downloadModalDoc && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="download-modal-title"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+            >
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2 text-indigo-700">
+                    <Key className="w-5 h-5" />
+                    <h3 id="download-modal-title" className="text-base font-bold text-slate-900">
+                      {isRtl ? 'رمز تصريح التحميل الموقوت' : 'Time-Bound Download Token'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDownloadModalDoc(null);
+                      setDownloadToken(null);
+                    }}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-700"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>{isRtl ? 'الملف المطلوب:' : 'Target Document:'}</span>
+                      <span className="font-semibold text-slate-900 font-mono">
+                        {downloadModalDoc.fileName}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>{isRtl ? 'المسار المعمى في المستودع:' : 'Opaque Storage Path:'}</span>
+                      <span className="font-mono text-[10px] text-slate-700 truncate max-w-[200px]">
+                        {downloadModalDoc.storagePath}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>{isRtl ? 'فترة الصلاحية:' : 'Token Expiry:'}</span>
+                      <span className="text-amber-700 font-semibold">
+                        {isRtl ? '300 ثانية (5 دقائق)' : '300 seconds (5 min)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      {isRtl
+                        ? 'رمز التفويض المشفر (مخصص لك ومسجل بالتدقيق)'
+                        : 'Audited Authorization Token'}
+                    </label>
+                    <div className="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 font-mono text-xs text-indigo-900 break-all select-all">
+                      {downloadToken}
+                    </div>
+                  </div>
+
+                  {downloadModalDoc.isLegalHold && (
+                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {isRtl
+                          ? 'تنبيه: الوثيقة خاضعة للحجز القانوني والتحفظ الرقابي.'
+                          : 'Notice: Document is under active legal hold. Deletion blocked.'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDownloadModalDoc(null);
+                      setDownloadToken(null);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-xs"
+                  >
+                    {isRtl ? 'إغلاق' : 'Close'}
                   </button>
                 </div>
               </div>

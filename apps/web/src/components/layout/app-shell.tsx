@@ -22,6 +22,8 @@ import {
   Layers,
   MapPin,
   Briefcase,
+  Bell,
+  Check,
 } from 'lucide-react';
 import type { SystemRole } from '@humanity/contracts';
 import { useLocale } from '@/lib/locale-context';
@@ -119,6 +121,53 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     return item.roles.some(r => user.roles.includes(r));
   });
+
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 'notif-1',
+      titleAr: 'طلب اعتماد استمارة تقييم نينوى',
+      titleEn: 'Ninewa Assessment Approval Required',
+      messageAr: 'أحال الباحث يوسف محمود توصية تقييم المساعدات النقدية للاعتماد الرقابي',
+      messageEn: 'Caseworker Yousif submitted a cash assessment recommendation for approval',
+      category: 'approval_required',
+      time: '10:15',
+      isRead: false,
+      linkUrl: '/dashboard/approvals',
+    },
+    {
+      id: 'notif-2',
+      titleAr: 'موعد مقابلة مراجعة ثبوتية',
+      titleEn: 'Scheduled Verification Appointment',
+      messageAr: 'تم تثبيت موعد مراجعة في مركز التنسيق للمستفيدة فاطمة علي',
+      messageEn: 'Appointment confirmed at Coordination Center for Fatima Ali',
+      category: 'appointment',
+      time: '11:30',
+      isRead: false,
+      linkUrl: '/dashboard/cases/50000000-0000-0000-0000-000000000001',
+    },
+    {
+      id: 'notif-3',
+      titleAr: 'تسوية قيد عكسي مالي',
+      titleEn: 'Financial Reversal Posted',
+      messageAr: 'تم قيد تسوية عكسية تعويضية لسند الصرف TX-FIN-2026-0002 بنجاح',
+      messageEn: 'Compensating reversal posted for voucher TX-FIN-2026-0002',
+      category: 'finance',
+      time: '12:45',
+      isRead: true,
+      linkUrl: '/dashboard/finance',
+    },
+  ]);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
+  const markOneAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, isRead: true } : n)));
+  };
 
   const handleLogout = () => {
     logout();
@@ -256,6 +305,88 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             )}
+
+            {/* In-App Notifications (Strictly In-App; No External Messaging) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="relative p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                title={isRtl ? 'الإشعارات الداخلية' : 'In-App Notifications'}
+                aria-label={isRtl ? 'الإشعارات الداخلية' : 'In-App Notifications'}
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 end-1 w-4 h-4 bg-emerald-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <div
+                  className={`absolute top-full mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 z-50 space-y-2 text-xs ${
+                    isRtl ? 'left-0' : 'right-0'
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2 px-1">
+                    <span className="font-bold text-slate-900">
+                      {isRtl ? 'الإشعارات الميدانية والرقابية' : 'In-App Notifications'}
+                    </span>
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllAsRead}
+                        className="text-[10px] text-emerald-600 hover:text-emerald-700 font-semibold"
+                      >
+                        {isRtl ? 'تحديد الكل كمقروء' : 'Mark all read'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                    {notifications.map(n => (
+                      <div
+                        key={n.id}
+                        className={`p-2 rounded-xl transition-colors space-y-1 ${
+                          n.isRead ? 'opacity-70 bg-white' : 'bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold text-slate-900 text-[11px]">
+                            {isRtl ? n.titleAr : n.titleEn}
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-400">{n.time}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-snug">
+                          {isRtl ? n.messageAr : n.messageEn}
+                        </p>
+                        {!n.isRead && (
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => markOneAsRead(n.id)}
+                              className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 font-semibold"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>{isRtl ? 'تمت القراءة' : 'Mark read'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-1.5 px-1 text-center">
+                    <span className="text-[10px] text-slate-400 italic">
+                      {isRtl
+                        ? 'إشعارات داخل النظام فقط · لا يوجد إرسال خارجي'
+                        : 'Strictly in-app · No external messaging'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Logout Action */}
             <button

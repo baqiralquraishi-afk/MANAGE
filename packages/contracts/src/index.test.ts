@@ -19,6 +19,13 @@ import {
   ProgrammeAssessmentSubmissionSchema,
   AssistanceDeliveryConfirmationSchema,
   ProgrammeFinancialLimitSchema,
+  DocumentMetadataRegistrationSchema,
+  DocumentDownloadRequestSchema,
+  AppointmentScheduleSchema,
+  AppointmentStatusUpdateSchema,
+  InAppNotificationSchema,
+  OperationalReportFilterSchema,
+  ReportExportAuditSchema,
 } from './index.js';
 
 test('ProgrammeCodeSchema validates all 8 official humanitarian programmes', () => {
@@ -307,4 +314,108 @@ test('ProgrammeFinancialLimitSchema enforces positive approval limits', () => {
       supervisorMaxLimit: -100,
     }),
   );
+});
+
+test('DocumentMetadataRegistrationSchema enforces opaque paths, allowed MIME types, and 10MB limit', () => {
+  const validDoc = {
+    beneficiaryId: '20000000-0000-0000-0000-000000000001',
+    caseId: '50000000-0000-0000-0000-000000000001',
+    documentCategory: 'national_id' as const,
+    storagePath:
+      'cases/50000000-0000-0000-0000-000000000001/doc-f47ac10b-58cc-4372-a567-0e02b2c3d479.pdf',
+    fileNameOriginal: 'civil_id_scan.pdf',
+    mimeType: 'application/pdf' as const,
+    fileSizeBytes: 2048576, // 2MB
+    checksumSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+  };
+
+  assert.deepStrictEqual(DocumentMetadataRegistrationSchema.parse(validDoc), validDoc);
+
+  // Directory traversal in storage path must fail
+  assert.throws(() =>
+    DocumentMetadataRegistrationSchema.parse({
+      ...validDoc,
+      storagePath: '../etc/passwd',
+    }),
+  );
+
+  // Executable MIME type must fail
+  assert.throws(() =>
+    DocumentMetadataRegistrationSchema.parse({
+      ...validDoc,
+      mimeType: 'application/x-msdownload' as any,
+    }),
+  );
+
+  // Oversized file (>10MB) must fail
+  assert.throws(() =>
+    DocumentMetadataRegistrationSchema.parse({
+      ...validDoc,
+      fileSizeBytes: 15 * 1024 * 1024,
+    }),
+  );
+});
+
+test('DocumentDownloadRequestSchema validates token expiry bounds', () => {
+  const validReq = {
+    documentId: '80000000-0000-0000-0000-000000000001',
+    expiresInSeconds: 300,
+  };
+  assert.deepStrictEqual(DocumentDownloadRequestSchema.parse(validReq), validReq);
+
+  // Expiration exceeding max (900s) must fail
+  assert.throws(() =>
+    DocumentDownloadRequestSchema.parse({
+      ...validReq,
+      expiresInSeconds: 3600,
+    }),
+  );
+});
+
+test('AppointmentScheduleSchema validates date/time and appointment bounds', () => {
+  const validAppt = {
+    caseId: '50000000-0000-0000-0000-000000000001',
+    scheduledTime: '2026-11-15T10:00:00.000Z',
+    locationType: 'coordination_center' as const,
+    officerId: '00000000-0000-0000-0000-000000000003',
+    notes: 'Legal verification consultation',
+  };
+  assert.deepStrictEqual(AppointmentScheduleSchema.parse(validAppt), validAppt);
+
+  // Invalid date format must fail
+  assert.throws(() =>
+    AppointmentScheduleSchema.parse({
+      ...validAppt,
+      scheduledTime: 'not-a-datetime',
+    }),
+  );
+});
+
+test('OperationalReportFilterSchema enforces k-anonymity suppression and pagination', () => {
+  const validFilter = {
+    reportType: 'sector_distribution' as const,
+    governorateId: 'IQ-BG',
+    limit: 25,
+    offset: 0,
+    suppressionThreshold: 5,
+  };
+  assert.deepStrictEqual(OperationalReportFilterSchema.parse(validFilter), validFilter);
+
+  // Page limit > 100 must fail
+  assert.throws(() =>
+    OperationalReportFilterSchema.parse({
+      ...validFilter,
+      limit: 500,
+    }),
+  );
+});
+
+test('ReportExportAuditSchema validates export audit records', () => {
+  const validExport = {
+    reportType: 'assistance_delivery',
+    format: 'csv' as const,
+    rowCount: 142,
+    filters: { governorateId: 'IQ-NI', programmeCode: 'FIN' },
+  };
+  assert.deepStrictEqual(ReportExportAuditSchema.parse(validExport), validExport);
 });
