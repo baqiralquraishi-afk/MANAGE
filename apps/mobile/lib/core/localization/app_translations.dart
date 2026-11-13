@@ -253,6 +253,36 @@ class AppTranslations {
       AppLanguage.ar: 'هذا الحقل إلزامي',
       AppLanguage.en: 'This field is required',
     },
+
+    // Humanitarian Terms (Approved Iraq Standard)
+    'term_consent': {
+      AppLanguage.ar: 'الموافقة المستنيرة الصريحة',
+      AppLanguage.en: 'Explicit Informed Consent',
+    },
+    'term_safeguarding': {
+      AppLanguage.ar: 'صون وحماية الفئات المستضعفة',
+      AppLanguage.en: 'Safeguarding & Heightened Protection',
+    },
+    'term_duplicate_review': {
+      AppLanguage.ar: 'تدقيق تشابه القيود والازدواجية',
+      AppLanguage.en: 'Duplicate Registration Review',
+    },
+    'term_ledger_reversal': {
+      AppLanguage.ar: 'قيد تسوية عكسي',
+      AppLanguage.en: 'Compensating Ledger Reversal',
+    },
+    'term_legal_hold': {
+      AppLanguage.ar: 'تجميد قانوني تحفظي',
+      AppLanguage.en: 'Protective Legal Hold',
+    },
+    'term_do_no_harm': {
+      AppLanguage.ar: 'عدم إلحاق الضرر',
+      AppLanguage.en: 'Do No Harm Principle',
+    },
+    'term_data_minimization': {
+      AppLanguage.ar: 'الحد الأدنى لجمع البيانات',
+      AppLanguage.en: 'Data Minimization',
+    },
   };
 
   static String get(String key, AppLanguage lang) {

@@ -509,6 +509,119 @@ export const ReportExportAuditSchema = z.object({
 export type ReportExportAudit = z.infer<typeof ReportExportAuditSchema>;
 
 /**
+ * Phase 14: Staff Role & Scope Management Contracts (Audited & Segregated)
+ */
+export const StaffRoleAssignmentSchema = z.object({
+  staffId: z.string().uuid(),
+  role: SystemRoleSchema,
+  rationale: z.string().min(10, 'Rationale must be at least 10 characters'),
+  isActive: z.boolean().default(true),
+});
+export type StaffRoleAssignment = z.infer<typeof StaffRoleAssignmentSchema>;
+
+export const StaffRoleRevocationSchema = z.object({
+  staffId: z.string().uuid(),
+  role: SystemRoleSchema,
+  rationale: z.string().min(10, 'Rationale must be at least 10 characters'),
+});
+export type StaffRoleRevocation = z.infer<typeof StaffRoleRevocationSchema>;
+
+export const StaffScopeAssignmentSchema = z.object({
+  staffId: z.string().uuid(),
+  governorateId: z.string().optional().nullable(),
+  programmeCode: ProgrammeCodeSchema.optional().nullable(),
+  rationale: z.string().min(10, 'Rationale must be at least 10 characters'),
+});
+export type StaffScopeAssignment = z.infer<typeof StaffScopeAssignmentSchema>;
+
+export const SecurityAuditCategorySchema = z.enum([
+  'access_control',
+  'security_violation',
+  'case_mutation',
+  'document_access',
+  'financial_transaction',
+  'role_management',
+]);
+export type SecurityAuditCategory = z.infer<typeof SecurityAuditCategorySchema>;
+
+export const SecurityAuditAlertSchema = z.object({
+  eventCategory: SecurityAuditCategorySchema,
+  actionName: z.string().min(3),
+  entityTable: z.string().min(1),
+  entityId: z.string().min(1),
+  details: z.record(z.any()),
+});
+export type SecurityAuditAlert = z.infer<typeof SecurityAuditAlertSchema>;
+
+export const SensitiveReadAuditSchema = z.object({
+  entityTable: z.string().min(1),
+  entityId: z.string().min(1),
+  accessReason: z.string().min(5, 'Access reason must be at least 5 characters'),
+});
+export type SensitiveReadAudit = z.infer<typeof SensitiveReadAuditSchema>;
+
+/**
+ * Phase 14: Approved Canonical Humanitarian Terminology (Iraq Operations)
+ * Standardized bilingual dictionary adhering to UN/IASC humanitarian coordination standards.
+ * Do not invent informal translations for protection, consent, or financial controls.
+ */
+export const APPROVED_HUMANITARIAN_TERMS = {
+  informedConsent: {
+    ar: 'الموافقة المستنيرة الصريحة',
+    en: 'Explicit Informed Consent',
+    description:
+      'Freely given, informed, and unambiguous agreement by the beneficiary or legal guardian',
+  },
+  safeguarding: {
+    ar: 'صون وحماية الفئات المستضعفة',
+    en: 'Safeguarding & Heightened Protection',
+    description:
+      'Protection of vulnerable persons, survivors of violence, children, and at-risk groups',
+  },
+  duplicateReview: {
+    ar: 'تدقيق تشابه القيود والازدواجية',
+    en: 'Duplicate Registration Review',
+    description: 'Human-adjudicated review of potential duplicate registrations; never auto-merged',
+  },
+  compensatingReversal: {
+    ar: 'قيد تسوية عكسي',
+    en: 'Compensating Ledger Reversal',
+    description:
+      'Immutable corrective double-entry transaction without altering posted historical ledgers',
+  },
+  legalHold: {
+    ar: 'تجميد قانوني تحفظي',
+    en: 'Protective Legal Hold',
+    description:
+      'Suspension of record disposal or alteration due to active legal or compliance investigation',
+  },
+  doNoHarm: {
+    ar: 'عدم إلحاق الضرر',
+    en: 'Do No Harm Principle',
+    description:
+      'Humanitarian imperative preventing data exposure or action that could compromise recipient safety',
+  },
+  dataMinimization: {
+    ar: 'الحد الأدنى لجمع البيانات',
+    en: 'Data Minimization',
+    description:
+      'Restricting collection and retention to what is strictly necessary for assistance delivery',
+  },
+  makerChecker: {
+    ar: 'إجراء التحضير والتدقيق الثنائي',
+    en: 'Maker-Checker Approval',
+    description:
+      'Dual authorization control separating proposal creation from final release authorization',
+  },
+  immutableAudit: {
+    ar: 'سجل التدقيق غير القابل للتعديل',
+    en: 'Immutable Audit Trail',
+    description:
+      'Cryptographically protected, append-only historical log of critical system operations',
+  },
+} as const;
+
+/**
  * Geographic Scope
  */
 export interface GeographicScope {

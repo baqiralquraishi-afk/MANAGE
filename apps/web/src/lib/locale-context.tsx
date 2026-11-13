@@ -53,6 +53,29 @@ const DICTIONARY: Record<SupportedLocale, Record<string, string>> = {
     'status.closed': 'مغلق',
     'status.reopened': 'معاد فتحه',
 
+    // Humanitarian Terms (Approved Iraq Standard)
+    'term.consent': 'الموافقة المستنيرة الصريحة',
+    'term.safeguarding': 'صون وحماية الفئات المستضعفة',
+    'term.duplicate_review': 'تدقيق تشابه القيود والازدواجية',
+    'term.ledger_reversal': 'قيد تسوية عكسي',
+    'term.legal_hold': 'تجميد قانوني تحفظي',
+    'term.do_no_harm': 'عدم إلحاق الضرر',
+    'term.data_minimization': 'الحد الأدنى لجمع البيانات',
+
+    // Audit and Compliance
+    'audit.title': 'سجل الرقابة وتتبع العمليات الحساسة',
+    'audit.subtitle':
+      'سجل غير قابل للتعديل يوثق كافة الأنشطة والتغييرات الحساسة والقرارات الميدانية',
+    'audit.all_categories': 'جميع الفئات',
+    'audit.access_control': 'التحكم بالوصول',
+    'audit.security_violation': 'تنبيه وانتهاك أمني',
+    'audit.case_mutation': 'تعديل بيانات الحالات',
+    'audit.document_access': 'الوصول إلى الوثائق',
+    'audit.financial_transaction': 'معاملة مالية',
+    'audit.role_management': 'إدارة أدوار وصلاحيات الموظفين',
+    'audit.export': 'تصدير سجل التدقيق',
+    'audit.export_success': 'تم تصدير سجل التدقيق بنجاح وتسجيل عملية التصدير',
+
     // Session and Common
     'session.expired_title': 'انتهت صلاحية الجلسة',
     'session.expired_desc': 'انتهت مهلة الجلسة لسلامة البيانات. يرجى تسجيل الدخول مجدداً.',
@@ -105,6 +128,29 @@ const DICTIONARY: Record<SupportedLocale, Record<string, string>> = {
     'status.active_delivery': 'Active Delivery',
     'status.closed': 'Closed',
     'status.reopened': 'Reopened',
+
+    // Humanitarian Terms (Approved Iraq Standard)
+    'term.consent': 'Explicit Informed Consent',
+    'term.safeguarding': 'Safeguarding & Heightened Protection',
+    'term.duplicate_review': 'Duplicate Registration Review',
+    'term.ledger_reversal': 'Compensating Ledger Reversal',
+    'term.legal_hold': 'Protective Legal Hold',
+    'term.do_no_harm': 'Do No Harm Principle',
+    'term.data_minimization': 'Data Minimization',
+
+    // Audit and Compliance
+    'audit.title': 'Security & Compliance Audit Trail',
+    'audit.subtitle':
+      'Append-only immutable audit trail logging all sensitive state mutations and document accesses',
+    'audit.all_categories': 'All Categories',
+    'audit.access_control': 'Access Control',
+    'audit.security_violation': 'Security Violation Alert',
+    'audit.case_mutation': 'Case Data Mutation',
+    'audit.document_access': 'Document Access',
+    'audit.financial_transaction': 'Financial Transaction',
+    'audit.role_management': 'Staff Role Management',
+    'audit.export': 'Export Audit Trail',
+    'audit.export_success': 'Audit trail exported successfully and audited',
 
     // Session and Common
     'session.expired_title': 'Session Expired',

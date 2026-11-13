@@ -34,6 +34,13 @@ import {
   SyncConflictStatusSchema,
   SyncConflictRecordSchema,
   SyncConflictResolutionRequestSchema,
+  StaffRoleAssignmentSchema,
+  StaffRoleRevocationSchema,
+  StaffScopeAssignmentSchema,
+  SecurityAuditCategorySchema,
+  SecurityAuditAlertSchema,
+  SensitiveReadAuditSchema,
+  APPROVED_HUMANITARIAN_TERMS,
 } from './index.js';
 
 test('ProgrammeCodeSchema validates all 8 official humanitarian programmes', () => {
@@ -496,4 +503,98 @@ test('ReportExportAuditSchema validates export audit records', () => {
     filters: { governorateId: 'IQ-NI', programmeCode: 'FIN' },
   };
   assert.deepStrictEqual(ReportExportAuditSchema.parse(validExport), validExport);
+});
+
+test('StaffRoleAssignmentSchema validates role assignment with mandatory 10+ char rationale', () => {
+  const valid = {
+    staffId: '00000000-0000-0000-0000-000000000003',
+    role: 'supervisor' as const,
+    rationale: 'Promotion to lead field operations in Mosul district',
+    isActive: true,
+  };
+  assert.deepStrictEqual(StaffRoleAssignmentSchema.parse(valid), valid);
+
+  // Short rationale (< 10 chars) must fail
+  assert.throws(() =>
+    StaffRoleAssignmentSchema.parse({
+      ...valid,
+      rationale: 'Too short',
+    }),
+  );
+});
+
+test('StaffRoleRevocationSchema validates role revocation with mandatory 10+ char rationale', () => {
+  const valid = {
+    staffId: '00000000-0000-0000-0000-000000000003',
+    role: 'supervisor' as const,
+    rationale: 'Temporary field supervisory rotation has concluded',
+  };
+  assert.deepStrictEqual(StaffRoleRevocationSchema.parse(valid), valid);
+});
+
+test('StaffScopeAssignmentSchema validates geographic and programme scope changes', () => {
+  const valid = {
+    staffId: '00000000-0000-0000-0000-000000000003',
+    governorateId: 'IQ-BG',
+    programmeCode: 'FOD' as const,
+    rationale: 'Emergency food distribution campaign deployment in Baghdad',
+  };
+  assert.deepStrictEqual(StaffScopeAssignmentSchema.parse(valid), valid);
+});
+
+test('SecurityAuditAlertSchema validates categories and payload', () => {
+  const validAlert = {
+    eventCategory: 'security_violation' as const,
+    actionName: 'UNAUTHORIZED_ACCESS_ATTEMPT',
+    entityTable: 'finance_ledger',
+    entityId: 'rec-001',
+    details: { reason: 'Missing checker role on disbursement' },
+  };
+  assert.deepStrictEqual(SecurityAuditAlertSchema.parse(validAlert), validAlert);
+
+  assert.throws(() =>
+    SecurityAuditAlertSchema.parse({
+      ...validAlert,
+      eventCategory: 'invalid_category' as any,
+    }),
+  );
+});
+
+test('SensitiveReadAuditSchema enforces 5+ character access justification', () => {
+  const validRead = {
+    entityTable: 'beneficiaries',
+    entityId: '20000000-0000-0000-0000-000000000001',
+    accessReason: 'Protection case intake assessment preparation',
+  };
+  assert.deepStrictEqual(SensitiveReadAuditSchema.parse(validRead), validRead);
+
+  // Short reason (< 5 chars) must fail
+  assert.throws(() =>
+    SensitiveReadAuditSchema.parse({
+      ...validRead,
+      accessReason: 'test',
+    }),
+  );
+});
+
+test('APPROVED_HUMANITARIAN_TERMS defines canonical bilingual dictionary', () => {
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.informedConsent.ar, 'الموافقة المستنيرة الصريحة');
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.informedConsent.en, 'Explicit Informed Consent');
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.safeguarding.ar, 'صون وحماية الفئات المستضعفة');
+  assert.strictEqual(
+    APPROVED_HUMANITARIAN_TERMS.safeguarding.en,
+    'Safeguarding & Heightened Protection',
+  );
+  assert.strictEqual(
+    APPROVED_HUMANITARIAN_TERMS.duplicateReview.ar,
+    'تدقيق تشابه القيود والازدواجية',
+  );
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.compensatingReversal.ar, 'قيد تسوية عكسي');
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.legalHold.ar, 'تجميد قانوني تحفظي');
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.doNoHarm.ar, 'عدم إلحاق الضرر');
+  assert.strictEqual(APPROVED_HUMANITARIAN_TERMS.dataMinimization.ar, 'الحد الأدنى لجمع البيانات');
+  assert.strictEqual(
+    APPROVED_HUMANITARIAN_TERMS.immutableAudit.ar,
+    'سجل التدقيق غير القابل للتعديل',
+  );
 });
