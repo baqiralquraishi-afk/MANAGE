@@ -26,6 +26,7 @@ import {
   XCircle,
   Archive,
   Compass,
+  PackageCheck,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
 import { RoleGuard } from '@/components/auth/role-guard';
@@ -83,8 +84,50 @@ export default function CaseDetailsPage() {
 
   // Tabs
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'lifecycle' | 'activities' | 'appointments'
+    'overview' | 'lifecycle' | 'activities' | 'appointments' | 'assistance'
   >('overview');
+
+  // Entitlements and Deliveries (Phase 10)
+  const [entitlements, setEntitlements] = useState<
+    {
+      id: string;
+      assistanceType: string;
+      currency: string;
+      authorizedAmount: number;
+      disbursedAmount: number;
+      status: 'authorized' | 'in_delivery' | 'completed' | 'cancelled';
+    }[]
+  >([
+    {
+      id: 'ent-5001',
+      assistanceType: 'emergency_mpca_cash',
+      currency: 'IQD',
+      authorizedAmount: 450000,
+      disbursedAmount: 0,
+      status: 'authorized',
+    },
+  ]);
+
+  const [deliveries, setDeliveries] = useState<
+    {
+      id: string;
+      deliveryReference: string;
+      recipientNationalId: string;
+      quantityOrAmount: number;
+      deliveredBy: string;
+      verifiedByRecipient: boolean;
+      verificationMethod: string;
+      deliveryNotes: string;
+      deliveredAt: string;
+    }[]
+  >([]);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [deliveryRecipientId, setDeliveryRecipientId] = useState('198512345678');
+  const [deliveryAmount, setDeliveryAmount] = useState('450000');
+  const [deliveryMethod, setDeliveryMethod] = useState('national_id_check');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
+  const [deliverySuccess, setDeliverySuccess] = useState<string | null>(null);
 
   // Status History
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([
@@ -202,6 +245,80 @@ export default function CaseDetailsPage() {
     setVisits(prev => [newVisit, ...prev]);
     setIsVisitModalOpen(false);
     setNewVisitNotes('');
+  };
+
+  const handleConfirmDelivery = () => {
+    setDeliveryError(null);
+    const ent = entitlements[0];
+    if (!ent) return;
+
+    if (ent.status === 'completed' || ent.disbursedAmount >= ent.authorizedAmount) {
+      setDeliveryError(
+        isRtl
+          ? 'خطأ أمني: تم استيفاء كامل الاستحقاق المخصص للحالة مسبقاً. التكرار محظور (ERR_REPEATED_DELIVERY).'
+          : 'Database security error: Entitlement has already been fulfilled in full (ERR_REPEATED_DELIVERY).',
+      );
+      return;
+    }
+
+    const amt = parseFloat(deliveryAmount);
+    if (isNaN(amt) || amt <= 0) {
+      setDeliveryError(isRtl ? 'يرجى إدخال مبلغ صحيح للتسليم.' : 'Invalid delivery amount.');
+      return;
+    }
+
+    if (ent.disbursedAmount + amt > ent.authorizedAmount) {
+      setDeliveryError(
+        isRtl
+          ? `المبلغ المطلوب (${amt.toLocaleString()} د.ع) يتجاوز الرصيد المتبقي (${(ent.authorizedAmount - ent.disbursedAmount).toLocaleString()} د.ع).`
+          : 'Delivery amount exceeds remaining authorized entitlement ceiling.',
+      );
+      return;
+    }
+
+    if (!deliveryRecipientId.trim() || deliveryRecipientId.trim() !== '198512345678') {
+      setDeliveryError(
+        isRtl
+          ? 'عدم تطابق الهوية: يجب التحقق من هوية المستفيد الأصلي المقيد في الملف (198512345678).'
+          : 'National ID verification failure: Does not match registered beneficiary.',
+      );
+      return;
+    }
+
+    const newDisbursed = ent.disbursedAmount + amt;
+    const newStatus = newDisbursed >= ent.authorizedAmount ? 'completed' : 'in_delivery';
+
+    const newDelivery = {
+      id: `deliv-${Date.now()}`,
+      deliveryReference: `DELIV-2026-FIN-000${deliveries.length + 1}`,
+      recipientNationalId: deliveryRecipientId,
+      quantityOrAmount: amt,
+      deliveredBy: user ? (isRtl ? user.fullNameAr : user.fullNameEn) : 'يوسف محمود عمر',
+      verifiedByRecipient: true,
+      verificationMethod: deliveryMethod,
+      deliveryNotes:
+        deliveryNotes || 'تم التسليم والتحقق من الهوية الوطنية للمستفيد واستلام التوقيع/البصمة.',
+      deliveredAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    };
+
+    setDeliveries(prev => [newDelivery, ...prev]);
+    setEntitlements(prev => [
+      {
+        ...prev[0],
+        disbursedAmount: newDisbursed,
+        status: newStatus,
+      },
+    ]);
+    if (caseStatus === 'approved') {
+      setCaseStatus('active_delivery');
+    }
+    setDeliverySuccess(
+      isRtl
+        ? `تم تسجيل سند التسليم (${newDelivery.deliveryReference}) بنجاح. القيد محمي وغير قابل للتعديل.`
+        : `Delivery confirmed (${newDelivery.deliveryReference}). Immutable record created.`,
+    );
+    setIsDeliveryModalOpen(false);
+    setTimeout(() => setDeliverySuccess(null), 5000);
   };
 
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
@@ -357,6 +474,18 @@ export default function CaseDetailsPage() {
               <CalendarDays className="w-3.5 h-3.5" />
               <span>{isRtl ? 'المواعيد والمتابعة' : 'Appointments'}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('assistance')}
+              className={`pb-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
+                activeTab === 'assistance'
+                  ? 'border-emerald-600 text-emerald-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>{isRtl ? 'المساعدات والتسليم' : 'Assistance & Deliveries'}</span>
+            </button>
           </div>
 
           {/* TAB 1: Overview & Household */}
@@ -436,6 +565,139 @@ export default function CaseDetailsPage() {
                       </span>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delivery Confirmation Modal (Phase 10) */}
+          {isDeliveryModalOpen && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delivery-modal-title"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+            >
+              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <PackageCheck className="w-5 h-5" />
+                    <h3 id="delivery-modal-title" className="text-base font-bold text-slate-900">
+                      {isRtl ? 'تسجيل سند تسليم مساعدة إنسانية' : 'Confirm Assistance Delivery'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeliveryModalOpen(false)}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-700"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {deliveryError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                    {deliveryError}
+                  </div>
+                )}
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 space-y-1">
+                  <p className="font-bold">
+                    {isRtl ? 'الضوابط الرقابية للتسليم الميداني' : 'Delivery Security Controls'}
+                  </p>
+                  <p className="text-amber-800 text-[11px] leading-relaxed">
+                    {isRtl
+                      ? 'يجب التحقق المباشر من الرقم الوطني للمستفيد ومطابقته. يمنع النظام تقنياً تكرار التسليم عند استنفاد المخصص (ERR_REPEATED_DELIVERY).'
+                      : 'Requires verification against registered civil ID. Repeated deliveries beyond authorized quotas are strictly rejected by the database.'}
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      {isRtl
+                        ? 'الرقم الوطني للمستلم (للتحقق) *'
+                        : 'Recipient Civil / National ID *'}
+                    </label>
+                    <input
+                      type="text"
+                      value={deliveryRecipientId}
+                      onChange={e => setDeliveryRecipientId(e.target.value)}
+                      placeholder="198512345678"
+                      className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white font-mono"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        {isRtl ? 'المبلغ المسلم (د.ع) *' : 'Delivery Amount (IQD) *'}
+                      </label>
+                      <input
+                        type="number"
+                        value={deliveryAmount}
+                        onChange={e => setDeliveryAmount(e.target.value)}
+                        className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        {isRtl ? 'طريقة التحقق من الهوية' : 'Verification Method'}
+                      </label>
+                      <select
+                        value={deliveryMethod}
+                        onChange={e => setDeliveryMethod(e.target.value)}
+                        className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white font-medium"
+                      >
+                        <option value="national_id_check">
+                          {isRtl ? 'مطابقة البطاقة الوطنية' : 'National ID Card'}
+                        </option>
+                        <option value="biometric_confirmation">
+                          {isRtl ? 'التحقق البصري / البايومتري' : 'Biometric / Visual'}
+                        </option>
+                        <option value="guardian_proxy">
+                          {isRtl ? 'وكيل قانوني معتمد' : 'Authorized Legal Proxy'}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      {isRtl
+                        ? 'ملاحظات التسليم والتثبيت الميداني'
+                        : 'Delivery Notes & Confirmation Details'}
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={deliveryNotes}
+                      onChange={e => setDeliveryNotes(e.target.value)}
+                      placeholder={
+                        isRtl
+                          ? 'تم تسليم المنحة النقدية باليد للمستفيد بعد توقيع سند الاستلام وتدقيق البطاقة الوطنية...'
+                          : 'Handed over cash grant against signed voucher and original ID verification...'
+                      }
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsDeliveryModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50"
+                  >
+                    {isRtl ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDelivery}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 shadow-xs"
+                  >
+                    {isRtl ? 'تأكيد التسليم وتوليد السند' : 'Confirm & Post Delivery'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -572,6 +834,222 @@ export default function CaseDetailsPage() {
                     <span className="text-slate-400 text-[11px]">{a.officerName}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: Assistance & Deliveries (Phase 10) */}
+          {activeTab === 'assistance' && (
+            <div className="space-y-6">
+              {/* Notification Banner */}
+              {deliverySuccess && (
+                <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-xs text-emerald-900 flex items-center gap-2 shadow-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{deliverySuccess}</span>
+                </div>
+              )}
+
+              {/* Active Entitlements */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isRtl
+                        ? 'المخصصات والاستحقاقات المعتمدة للحالة'
+                        : 'Authorized Assistance Entitlements'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {isRtl
+                        ? 'مخصصات المساعدة المعتمدة من المشرف والمقيدة ضمن السقف المالي للبرنامج'
+                        : 'Approved entitlements constrained by programme financial policy limits'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliveryError(null);
+                      setIsDeliveryModalOpen(true);
+                    }}
+                    disabled={
+                      entitlements[0]?.status === 'completed' ||
+                      caseStatus === 'draft' ||
+                      caseStatus === 'closed'
+                    }
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors shadow-xs ${
+                      entitlements[0]?.status === 'completed' ||
+                      caseStatus === 'draft' ||
+                      caseStatus === 'closed'
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    }`}
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                    <span>
+                      {entitlements[0]?.status === 'completed'
+                        ? isRtl
+                          ? 'اكتمل التسليم بالكامل'
+                          : 'Fully Delivered'
+                        : isRtl
+                          ? 'تسجيل تسليم مساعدة'
+                          : 'Confirm Delivery'}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-start text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                      <tr>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'نوع المساعدة' : 'Assistance Type'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'المبلغ المعتمد' : 'Authorized Amount'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'المسلم فعلياً' : 'Disbursed / Delivered'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">
+                          {isRtl ? 'المتبقي' : 'Remaining'}
+                        </th>
+                        <th className="py-2.5 px-3 text-start">{isRtl ? 'الحالة' : 'Status'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {entitlements.map(ent => {
+                        const remaining = Math.max(0, ent.authorizedAmount - ent.disbursedAmount);
+                        return (
+                          <tr key={ent.id} className="hover:bg-slate-50/50">
+                            <td className="py-3 px-3 font-semibold text-slate-900">
+                              {ent.assistanceType === 'emergency_mpca_cash'
+                                ? isRtl
+                                  ? 'منحة نقدية طارئة متعددة الأغراض (FIN)'
+                                  : 'Multi-Purpose Cash Assistance (FIN)'
+                                : ent.assistanceType}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                              {ent.authorizedAmount.toLocaleString()} {ent.currency}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-emerald-700">
+                              {ent.disbursedAmount.toLocaleString()} {ent.currency}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-slate-700">
+                              {remaining.toLocaleString()} {ent.currency}
+                            </td>
+                            <td className="py-3 px-3">
+                              {ent.status === 'completed' ? (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
+                                  {isRtl ? 'مكتمل بالكامل' : 'Completed'}
+                                </span>
+                              ) : ent.status === 'in_delivery' ? (
+                                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-semibold">
+                                  {isRtl ? 'قيد التسليم الجزئي' : 'In Delivery'}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                                  {isRtl ? 'معتمد للتسليم' : 'Authorized'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Traceable Delivery Records */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {isRtl
+                        ? 'سجل تسليم المساعدات الميدانية (غير قابل للتعديل)'
+                        : 'Immutable Field Delivery Records'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {isRtl
+                        ? 'سجلات التسليم موثقة بالهوية الوطنية والوقت، وتمنع مشغلات قاعدة البيانات أي تعديل أو حذف لاحق.'
+                        : 'Field delivery logs verified by civil ID and timestamp; protected from mutations by triggers.'}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2.5 py-1 rounded">
+                    {deliveries.length} {isRtl ? 'سندات تسليم' : 'deliveries'}
+                  </span>
+                </div>
+
+                {deliveries.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <PackageCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-slate-600">
+                      {isRtl
+                        ? 'لا توجد سندات تسليم مسجلة بعد'
+                        : 'No field deliveries confirmed yet'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {isRtl
+                        ? 'انقر على "تسجيل تسليم مساعدة" لتسجيل سند التسليم والتحقق من الرقم الوطني للمستفيد.'
+                        : 'Click "Confirm Delivery" to verify recipient civil ID and post an immutable delivery voucher.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-start text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                        <tr>
+                          <th className="py-2.5 px-3 text-start">
+                            {isRtl ? 'رقم السند' : 'Delivery Ref'}
+                          </th>
+                          <th className="py-2.5 px-3 text-start">
+                            {isRtl ? 'الرقم الوطني للمستلم' : 'Recipient ID'}
+                          </th>
+                          <th className="py-2.5 px-3 text-start">
+                            {isRtl ? 'المبلغ / الكمية' : 'Amount'}
+                          </th>
+                          <th className="py-2.5 px-3 text-start">
+                            {isRtl ? 'طريقة التحقق' : 'Verification'}
+                          </th>
+                          <th className="py-2.5 px-3 text-start">{isRtl ? 'المسلم' : 'Officer'}</th>
+                          <th className="py-2.5 px-3 text-start">
+                            {isRtl ? 'وقت التسليم' : 'Delivered At'}
+                          </th>
+                          <th className="py-2.5 px-3 text-start">
+                            {isRtl ? 'الملاحظات' : 'Notes'}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {deliveries.map(del => (
+                          <tr key={del.id} className="hover:bg-slate-50/50">
+                            <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                              {del.deliveryReference}
+                            </td>
+                            <td className="py-3 px-3 font-mono text-emerald-800 font-semibold">
+                              {del.recipientNationalId}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                              {del.quantityOrAmount.toLocaleString()} IQD
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-semibold text-slate-700">
+                                {del.verificationMethod}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-slate-800">{del.deliveredBy}</td>
+                            <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                              {del.deliveredAt}
+                            </td>
+                            <td className="py-3 px-3 text-slate-600 max-w-[200px] truncate">
+                              {del.deliveryNotes}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

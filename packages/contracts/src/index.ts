@@ -248,6 +248,54 @@ export const CaseClosureSchema = z.object({
 export type CaseClosure = z.infer<typeof CaseClosureSchema>;
 
 /**
+ * Programme Assessment Submission Schema
+ */
+export const ProgrammeAssessmentSubmissionSchema = z.object({
+  caseId: z.string().uuid(),
+  templateId: z.string().uuid(),
+  programmeCode: ProgrammeCodeSchema,
+  responses: z.record(z.any()),
+  computedScore: z.number().min(0).max(100),
+  assessedBy: z.string().uuid(),
+  recommendedAssistanceType: z.string().min(2),
+  recommendedAmount: z.number().nonnegative(),
+});
+export type ProgrammeAssessmentSubmission = z.infer<typeof ProgrammeAssessmentSubmissionSchema>;
+
+/**
+ * Assistance Delivery Confirmation Schema
+ */
+export const AssistanceDeliveryConfirmationSchema = z.object({
+  entitlementId: z.string().uuid(),
+  caseId: z.string().uuid(),
+  deliveryReference: z.string().min(6).max(64),
+  recipientNationalId: z.string().min(5).max(64),
+  quantityOrAmount: z.number().positive('Delivered quantity or amount must be positive'),
+  deliveredBy: z.string().uuid(),
+  verifiedByRecipient: z.boolean().default(true),
+  verificationMethod: z.enum([
+    'national_id_check',
+    'biometric_token',
+    'sms_otp_voucher',
+    'signed_manifest',
+  ]),
+  deliveryNotes: z.string().optional(),
+});
+export type AssistanceDeliveryConfirmation = z.infer<typeof AssistanceDeliveryConfirmationSchema>;
+
+/**
+ * Programme Financial Policy Limits Schema
+ */
+export const ProgrammeFinancialLimitSchema = z.object({
+  programmeCode: ProgrammeCodeSchema,
+  currency: z.enum(['IQD', 'USD']).default('IQD'),
+  supervisorMaxLimit: z.number().positive(),
+  managerMaxLimit: z.number().positive(),
+  isActive: z.boolean().default(true),
+});
+export type ProgrammeFinancialLimit = z.infer<typeof ProgrammeFinancialLimitSchema>;
+
+/**
  * Geographic Scope
  */
 export interface GeographicScope {

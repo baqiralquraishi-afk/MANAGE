@@ -16,6 +16,9 @@ import {
   DuplicateReviewDecisionSchema,
   CaseCreationSchema,
   CaseClosureSchema,
+  ProgrammeAssessmentSubmissionSchema,
+  AssistanceDeliveryConfirmationSchema,
+  ProgrammeFinancialLimitSchema,
 } from './index.js';
 
 test('ProgrammeCodeSchema validates all 8 official humanitarian programmes', () => {
@@ -233,6 +236,75 @@ test('CaseClosureSchema requires detailed closure reason and justification', () 
     CaseClosureSchema.parse({
       ...validClosure,
       closureReason: 'done',
+    }),
+  );
+});
+
+test('ProgrammeAssessmentSubmissionSchema validates scoring and sector matching', () => {
+  const validAssessment = {
+    caseId: '50000000-0000-0000-0000-000000000001',
+    templateId: '60000000-0000-0000-0000-000000000001',
+    programmeCode: 'FIN' as const,
+    responses: { incomeIqd: 150000, shelterScore: 3 },
+    computedScore: 82.5,
+    assessedBy: '00000000-0000-0000-0000-000000000003',
+    recommendedAssistanceType: 'emergency_mpca_cash',
+    recommendedAmount: 250000,
+  };
+
+  assert.deepStrictEqual(
+    ProgrammeAssessmentSubmissionSchema.parse(validAssessment),
+    validAssessment,
+  );
+
+  // Score out of bounds must fail
+  assert.throws(() =>
+    ProgrammeAssessmentSubmissionSchema.parse({
+      ...validAssessment,
+      computedScore: 105,
+    }),
+  );
+});
+
+test('AssistanceDeliveryConfirmationSchema enforces positive delivery amount and verification', () => {
+  const validDelivery = {
+    entitlementId: '70000000-0000-0000-0000-000000000001',
+    caseId: '50000000-0000-0000-0000-000000000001',
+    deliveryReference: 'DELIV-2026-FOD-0001',
+    recipientNationalId: '198512345678',
+    quantityOrAmount: 1, // e.g. 1 food basket or cash unit
+    deliveredBy: '00000000-0000-0000-0000-000000000003',
+    verifiedByRecipient: true,
+    verificationMethod: 'national_id_check' as const,
+    deliveryNotes: 'Verified ID document and recipient signature',
+  };
+
+  assert.deepStrictEqual(AssistanceDeliveryConfirmationSchema.parse(validDelivery), validDelivery);
+
+  // Zero or negative delivery amount must fail
+  assert.throws(() =>
+    AssistanceDeliveryConfirmationSchema.parse({
+      ...validDelivery,
+      quantityOrAmount: 0,
+    }),
+  );
+});
+
+test('ProgrammeFinancialLimitSchema enforces positive approval limits', () => {
+  const validLimits = {
+    programmeCode: 'FIN' as const,
+    currency: 'IQD' as const,
+    supervisorMaxLimit: 500000,
+    managerMaxLimit: 2000000,
+    isActive: true,
+  };
+
+  assert.deepStrictEqual(ProgrammeFinancialLimitSchema.parse(validLimits), validLimits);
+
+  assert.throws(() =>
+    ProgrammeFinancialLimitSchema.parse({
+      ...validLimits,
+      supervisorMaxLimit: -100,
     }),
   );
 });
