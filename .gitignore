@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build outputs
+apps/web/.next/
+apps/web/out/
+
+# TypeScript build outputs
+*.tsbuildinfo
+dist/
+
+# Flutter / Dart build outputs
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+
+# Supabase local state
+supabase/.temp/
+supabase/.branches/
+
+# Environment files and credentials (CRITICAL: never commit real secrets)
+.env
+.env*.local
+*.env
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+credentials.json
+service-account*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE files
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Test and coverage artifacts
+coverage/
+*.lcov
+test-results/
+
