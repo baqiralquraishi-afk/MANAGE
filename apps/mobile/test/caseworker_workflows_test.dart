@@ -26,7 +26,9 @@ void main() {
       expect(byName.first.nationalId, '199087654321');
     });
 
-    test('2. Beneficiary Registration strictly requires mandatory informed consent', () async {
+    test(
+        '2. Beneficiary Registration strictly requires mandatory informed consent',
+        () async {
       // Must throw if informed consent is false
       expect(
         () => service.registerBeneficiary(
@@ -74,7 +76,9 @@ void main() {
       expect(casesSupervisor.length, greaterThanOrEqualTo(2));
     });
 
-    test('4. Assessment submission validates score bounds and advances case state', () async {
+    test(
+        '4. Assessment submission validates score bounds and advances case state',
+        () async {
       const caseId = '50000000-0000-0000-0000-000000000001';
 
       // Invalid score (>100) rejected
@@ -107,7 +111,8 @@ void main() {
       expect(updatedCase!.status, 'under_assessment');
     });
 
-    test('5. Field visit logging records GPS coordinates and observations', () async {
+    test('5. Field visit logging records GPS coordinates and observations',
+        () async {
       const caseId = '50000000-0000-0000-0000-000000000001';
 
       final visit = await service.logFieldVisit(
@@ -138,7 +143,9 @@ void main() {
       expect(appt.status, 'completed');
     });
 
-    test('7. Document capture enforces MIME restrictions, size ceiling, and opaque paths', () async {
+    test(
+        '7. Document capture enforces MIME restrictions, size ceiling, and opaque paths',
+        () async {
       const caseId = '50000000-0000-0000-0000-000000000001';
 
       // Rejects executable / script MIME types
@@ -183,11 +190,14 @@ void main() {
       );
 
       expect(doc.storagePath, startsWith('cases/$caseId/doc-'));
-      expect(doc.storagePath.contains('..'), false, reason: 'Must not contain directory traversal');
+      expect(doc.storagePath.contains('..'), false,
+          reason: 'Must not contain directory traversal');
       expect(doc.storagePath.endsWith('.pdf'), true);
     });
 
-    test('8. Offline mutation queue handles offline actions and enforces ADR-003 safety', () async {
+    test(
+        '8. Offline mutation queue handles offline actions and enforces ADR-003 safety',
+        () async {
       service.toggleConnectivity(); // Go offline
       expect(service.isOnline, false);
       expect(service.pendingSyncCount, 0);
